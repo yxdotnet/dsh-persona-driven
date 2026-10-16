@@ -55,6 +55,41 @@ def effective_class(e: dict) -> str:
     return tool
 
 
+# 工具族的名字前缀（DSH 的工具生态比 WorkBuddy 宽得多：MCP、blender_rt_*、内置的
+# skill / job_*…）。**只用已落盘的字段归类，不新增埋点。**
+FAMILY_PREFIXES = (
+    ("mcp__", "MCP"),
+    ("blender_rt_", "Blender"),
+    ("skill", "技能"),
+    ("job_", "后台作业"),
+)
+
+
+def tool_family(e: dict) -> str:
+    """工具族。
+
+    **`_cls`（有效类别）优先**：归类成功的都是 DSH 内置工具。历史记录里 `raw_tool` 与
+    `_cls` 会同时存在（旧写入端漏了词表、读取端事后回溯修正），此时若先看 `raw_tool`，
+    会把已归类的读/改调用误扔进「其他」——实测过，一次就错了 190 条。
+    只有归类失败的才去看原始工具名，用来认出插件工具族。
+    """
+    cls = e.get("_cls") or ""
+    if cls == "task":
+        return "子代理"   # subagent / subagent_fork / workflow 都归一成 task
+    if cls == "web":
+        return "网络"
+    # 注意 `_cls` 可能是字符串 "other"——它也是真值。把它当成「已归类」会让
+    # blender_rt_* / skill / todo_write 全被误判成内置（实测一次错 190 条）。
+    if cls and cls != "other":
+        return "内置"
+    raw = str(e.get("raw_tool") or "")
+    low = raw.lower()
+    for prefix, name in FAMILY_PREFIXES:
+        if low.startswith(prefix):
+            return name
+    return "其他" if raw else "未归属"
+
+
 def dsh_home() -> Path:
     """DSH 主目录：$DSH_HOME 优先，缺省 ~/.dsh。"""
     override = (os.environ.get("DSH_HOME") or "").strip()
@@ -91,14 +126,26 @@ def layer_of(rec) -> str:
     return v if v in LAYER_LABEL else "未归属"
 
 
-def load_events():
-    events = []
+# 会话事件（不是工具调用）。必须与工具事件分开读——审批记录带 `tool` 字段，
+# 混进工具事件会被「工具分布」与「探查画像」算成一次真实调用，那是污染不是统计。
+SESSION_MARK_EVENTS = ("approval", "turn")
+
+
+def event_files():
+    """事件流文件（排除注入/档位文件与历史清理产物）。"""
     for f in sorted(METRICS.glob("*.jsonl")):
         # 注入/档位文件由各自 loader 读取；事件流只收工具事件文件
         #（不限年份，避免跨年后漏数据；purged/shard 为历史清理产物）。
         if (f.name.startswith(("injections-", "dials-"))
                 or "purged" in f.name or "shard" in f.name):
             continue
+        yield f
+
+
+def load_events():
+    """**工具**事件（含守卫命中）。会话事件走 `load_session_marks()`。"""
+    events = []
+    for f in event_files():
         day = f.name.split(".")[0]
         for line in f.read_text(encoding="utf-8", errors="replace").splitlines():
             line = line.strip()
@@ -108,10 +155,36 @@ def load_events():
                 r = json.loads(line)
             except Exception:
                 continue
+            if r.get("ev") in SESSION_MARK_EVENTS:
+                continue
             r["_day"] = day
             r["_cls"] = effective_class(r)
             events.append(r)
     return events
+
+
+def load_session_marks():
+    """会话事件：审批结局与每轮边界（DSH 专属维度）。
+
+    这两类只有原生插件会写（`ctx.on('session/event')`），钩子桥那条路没有，
+    所以旧数据里一条都不会有——看板对空集如实显示「暂无」，不编造。
+    """
+    marks = []
+    for f in event_files():
+        day = f.name.split(".")[0]
+        for line in f.read_text(encoding="utf-8", errors="replace").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                r = json.loads(line)
+            except Exception:
+                continue
+            if r.get("ev") not in SESSION_MARK_EVENTS:
+                continue
+            r["_day"] = day
+            marks.append(r)
+    return marks
 
 
 def load_injections():
@@ -270,6 +343,7 @@ def load_layer_states():
 
 def main():
     events = load_events()
+    marks = load_session_marks()
     injections = load_injections()
     dial_rows = load_dials()
     state = json.loads(STATE.read_text(encoding="utf-8")) if STATE.exists() else {}
@@ -283,6 +357,36 @@ def main():
     events = [e for e in events
               if not is_instrument(str(e.get("session", ""))) and not is_exp(e)]
     injections = [r for r in injections if not is_instrument(str(r.get("session", "")))]
+    marks = [m for m in marks
+             if not is_instrument(str(m.get("session", ""))) and not is_exp(m)]
+
+    # ---- DSH 专属维度（1.7.0 起）--------------------------------------------
+    # 全部只用**已落盘的数据**算，不新增采集。
+
+    family = Counter(tool_family(e) for e in events)
+
+    # 审批结局：这是「档位是否让人更冒进」最直接的观测值。拒绝率只在**用户真的做了选择**
+    # 时才有意义——`cancelled`（撤销）与 `unavailable`（没有审批通道）都不是拒绝，
+    # 把它们算进分母会把「环境没提示」误读成「用户挺满意」。
+    approval_rows = [m for m in marks if m.get("ev") == "approval"]
+    approval_by_outcome = Counter(str(m.get("outcome") or "?") for m in approval_rows)
+    granted = approval_by_outcome.get("allowed-once", 0)
+    rejected = approval_by_outcome.get("rejected", 0)
+    decided = granted + rejected
+    reject_rate = round(100 * rejected / decided) if decided else None
+    approval_by_tool = Counter(str(m.get("tool") or "(工具名未知)") for m in approval_rows)
+
+    # 每轮调用数：判定线关心的相对量。只在**两个量都拿得到**的会话上算——
+    # 缺 turn 埋点的历史会话如实排除，不拿会话事件数冒充轮数。
+    turn_rows = [m for m in marks if m.get("ev") == "turn"]
+    turns_by_session = Counter(str(m.get("session") or "") for m in turn_rows)
+    calls_by_session = Counter(str(e.get("session") or "") for e in events)
+    per_turn = [
+        {"session": sid[:13] + "…", "turns": n, "calls": calls_by_session[sid],
+         "callsPerTurn": round(calls_by_session[sid] / n, 2)}
+        for sid, n in turns_by_session.items() if n > 0 and calls_by_session.get(sid)
+    ]
+    per_turn.sort(key=lambda r: r["callsPerTurn"], reverse=True)
 
     # 「自定义」档位的显示名：用该会话层档位文件的八旋钮级别组合区分（仅此情形，
     # MBTI 名原样保留）。事件级预计算 _pd，供所有 persona 聚合统一取用。
@@ -547,6 +651,17 @@ def main():
         "injEvents": inj_events.most_common(),
         "injChars": {"avg": (sum(inj_chars) // max(len(inj_chars), 1)), "n": len(inj_chars)},
         "exploreAll": explore_view(events),
+        "families": family.most_common(),
+        "approvals": {
+            "total": len(approval_rows),
+            "byOutcome": approval_by_outcome.most_common(),
+            "byTool": approval_by_tool.most_common(10),
+            "rejectRate": reject_rate,
+            "granted": granted,
+            "rejected": rejected,
+        },
+        "perTurn": per_turn[:20],
+        "turnsTotal": len(turn_rows),
         "exploreSmall": explore_view(small_events),
         "sessDetail": sess_detail,
         "projDetail": proj_detail,
@@ -606,6 +721,14 @@ def main():
     ea = payload["exploreAll"]
     print(f"探查画像（全部）：读/改比 {ea['ratio']} | 搜索探查占比 {ea['searchShare'][0]}%"
           f"（读 {sum(ea['read'])} / 改 {sum(ea['edit'])} / 探查 {sum(ea['search'])}）")
+    print(f"工具族：{dict(family.most_common())}")
+    print("审批结局：" + (f"{dict(approval_by_outcome)}"
+                          + (f" | 拒绝率 {reject_rate}%（{rejected}/{decided}）" if decided
+                             else " | 拒绝率 暂无（还没有用户做过选择）")
+                          if approval_rows else "暂无（需原生插件写 session/event）"))
+    print("每轮调用数：" + (f"{len(per_turn)} 个会话可算 | 最高 {per_turn[0]['session']} "
+                            f"{per_turn[0]['callsPerTurn']}"
+                            if per_turn else "暂无（缺 turn 埋点或 turn 记录为 0）"))
     print(f"写出 {OUT}")
 
 
@@ -680,6 +803,15 @@ select{font-size:13px;padding:2px 4px;max-width:340px;}
   <p class="note">读改比 <b id="exRatio">—</b> · 搜索探查占比 <b id="exShare">—</b>（grep/glob 占三类合计）· 重复读 <b id="exDup">—</b></p>
   <div class="ch"><canvas id="explore" role="img" aria-label="探查画像每日折线图">探查画像</canvas></div>
   <p class="note">口径：重复读按文件路径哈希统计（同一文件读多次的浪费部分，不落路径原文），自该埋点上线起累积，旧数据不计入；读改比高=探查相对改动的开销大，仅个人趋势参考。</p>
+</div>
+
+<div class="panel hk" id="dshPanel">
+  <h3>DSH 维度 · 工具族 / 审批结局 / 每轮调用数</h3>
+  <p class="note" id="dshFam">—</p>
+  <p class="note" id="dshAppr">—</p>
+  <p class="note" id="dshTurn">—</p>
+  <p class="note">口径：工具族按已落盘字段归类，不新增采集；审批结局与每轮边界来自 DSH 的会话事件
+  （只有原生插件会写，钩子桥没有），所以旧数据一律显示「暂无」而不编造。</p>
 </div>
 
 <div class="grid2 hk">
@@ -829,6 +961,7 @@ function renderGlobal() {
   renderTools(P.toolAll, P.rawTop);
   renderExplore(P.exploreAll);
   renderLayers(P.layersAll.inj, P.layersAll.ev);
+  renderDsh();
   drawRadar(P.state, '取自全局层状态文件实时值（1–9 刻度）');
   renderTelemetry('all');
   document.getElementById('layerPanel').style.display = '';
@@ -1024,6 +1157,36 @@ function hideRadar(msg) {
   document.getElementById('radarNa').textContent = msg || '该视角没有对应的档位状态文件。';
   document.getElementById('stPersona').textContent = '';
   document.getElementById('stGist').textContent = '';
+}
+
+function renderDsh() {
+  const fam = P.families || [];
+  document.getElementById('dshFam').innerHTML = fam.length
+    ? '工具族（' + fam.reduce((n, r) => n + r[1], 0) + ' 次调用）：'
+      + fam.map((r) => r[0] + ' ' + r[1]).join(' · ')
+    : '工具族：暂无';
+
+  const a = P.approvals || {};
+  let appr;
+  if (!a.total) {
+    appr = '审批结局：暂无 —— 这两类只有原生插件会写会话事件，重启 DSH 后开始积累';
+  } else {
+    appr = '审批结局：' + (a.byOutcome || []).map((r) => r[0] + ' ' + r[1]).join(' · ')
+      + (a.rejectRate === null
+        ? ' · 拒绝率 —（还没有用户做过选择；撤销与无通道不计入）'
+        : ' · 拒绝率 ' + a.rejectRate + '%（' + a.rejected + '/' + (a.granted + a.rejected) + '）');
+    if ((a.byTool || []).length) {
+      appr += '；按工具：' + a.byTool.map((r) => r[0] + ' ' + r[1]).join(' · ');
+    }
+  }
+  document.getElementById('dshAppr').innerHTML = appr;
+
+  const t = P.perTurn || [];
+  document.getElementById('dshTurn').innerHTML = t.length
+    ? '每轮调用数：' + t.slice(0, 5)
+      .map((r) => r.session + ' ' + r.callsPerTurn + '（' + r.calls + ' 次 / ' + r.turns + ' 轮）')
+      .join(' · ')
+    : '每轮调用数：暂无（缺 turn 埋点）—— 这是「档位是否让人一次到位」的相对量，判定线关心的正是它';
 }
 
 function renderAll() {
