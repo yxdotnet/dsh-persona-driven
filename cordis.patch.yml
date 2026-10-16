@@ -1,0 +1,24 @@
+# @dsh-external/persona-driven 的 bundle 层。
+#
+# 本包声明了 package.json 的 `dsh.bundle.patch`，所以 DSH 的 plugin_manager 会把它
+# 当作一个**可启停的 profile 层**（而不是「普通依赖」）。剖面把它加进
+# dsh.profile.bundles 之后，装配时插入下面这一行。
+#
+# 这一行同时负责三件事，它们都在 lib/index.js 的 apply() 里完成：
+#   1. 注册内置的 persona-driven 技能（模型在 <available_skills> 里看得到）；
+#   2. 每轮注入档位块（agent/pre-step）；
+#   3. 安全底线强制确认（tools/pre-execute 返回 ask）。
+#
+# 可选配置项（都有合理默认值，不写 config 就能用）：
+#   config:
+#     injectBlock: true          # 关掉每轮注入（技能仍然加载）
+#     guard: true                # 关掉安全底线强制确认
+#     guardScope: all            # all | exec（exec 只扫命令与路径，不再因写文档误弹）
+#     metrics: true              # 关掉埋点写入
+#     sessionStartInject: false  # 追加 agent/created 期注入（默认关：turn 1 已被 pre-step 覆盖）
+#     webPanel: true             # 注册只读网页面板路由
+#     skillDir: ''               # 覆盖技能负载目录
+- insert:
+    - id: persona-driven
+      name: '@dsh-external/persona-driven'
+      config: {}

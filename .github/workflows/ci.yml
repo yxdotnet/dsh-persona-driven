@@ -1,0 +1,80 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.os }} / node ${{ matrix.node }} / py ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: ['20', '22']
+        python: ['3.10', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      # 不装任何依赖：整个仓库只用 Node 内置模块与 Python 标准库。
+      - name: 单元与契约用例
+        run: npm test
+
+      - name: 底线文案 JS ⇄ Python 逐字同步
+        run: npm run test:sync
+
+      - name: 安装自检
+        run: npm run doctor
+
+      - name: 技能脚本可解析（Python 语法）
+        shell: bash
+        run: |
+          for f in skills/persona-driven/scripts/*.py; do
+            python -c "import ast,sys; ast.parse(open(sys.argv[1],encoding='utf-8').read(), sys.argv[1])" "$f"
+          done
+          echo "AST OK"
+
+      - name: 技能脚本可运行（只用标准库）
+        shell: bash
+        run: |
+          cd skills/persona-driven
+          python scripts/persona.py list > /dev/null
+          python scripts/persona.py dials > /dev/null
+          python scripts/persona.py hook-config > /dev/null
+          python scripts/persona.py get > /dev/null
+          python scripts/check_environment.py > /dev/null
+          echo "CLI OK"
+
+      - name: 钩子配置不含 DSH 不支持的 PreCompact
+        shell: bash
+        run: |
+          cd skills/persona-driven
+          out="$(python scripts/persona.py hook-config)"
+          echo "$out"
+          case "$out" in
+            *PreCompact*) echo "PreCompact 不应出现：DSH 的 Claude Code 桥接不支持它"; exit 1 ;;
+          esac
+
+      - name: 冒烟跑一次人格看板（空埋点也必须出 HTML）
+        shell: bash
+        run: |
+          cd skills/persona-driven
+          export PERSONA_METRICS_DIR="$(mktemp -d)/metrics"
+          export PERSONA_DASHBOARD_OUT="$(mktemp -d)/persona-dashboard.html"
+          python scripts/persona_dashboard.py > /dev/null
+          test -s "$PERSONA_DASHBOARD_OUT"
+          echo "dashboard OK"

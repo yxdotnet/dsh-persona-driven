@@ -1,0 +1,24 @@
+# 一律 LF：本仓库同时含 Python、JS 与 Markdown，且在 Windows 上开发、在 Linux CI 上跑测试。
+# 不固定行尾会让「只有行尾差异」的伪 diff 反复出现，也会让哈希冻结类校验失效。
+* text=auto eol=lf
+
+*.py   text eol=lf
+*.js   text eol=lf
+*.mjs  text eol=lf
+*.json text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.md   text eol=lf
+*.svg  text eol=lf
+
+# 二进制：不要做任何行尾或编码转换。
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.zip binary
+*.gz  binary
+
+# 生成物与语言统计豁免。
+package-lock.json -diff linguist-generated
+pnpm-lock.yaml    -diff linguist-generated

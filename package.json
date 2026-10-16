@@ -1,0 +1,90 @@
+{
+  "name": "@dsh-external/persona-driven",
+  "version": "1.6.0",
+  "description": "人格驱动引擎（persona-driven）的 DeepSeek Harness 插件版：把「AI 太谨慎、小改动反复测试、烧 token」翻译成 8 颗可调旋钮，按 MBTI 类型或预设写入档位，并每轮注入。内置 persona-driven 技能（ctx.skills.registerProvider），用原生 Cordis 扩展点做每轮注入（agent/pre-step）与安全底线强制确认（tools/pre-execute → ask），不依赖 Bash，也不需要每轮起 Python 子进程；状态文件与 Python CLI（scripts/persona.py）完全共用，档位切换、看板与对照实验工具全部保留。上行来源：WorkBuddy 技能 persona-driven v1.5.37。",
+  "private": false,
+  "license": "MIT",
+  "type": "module",
+  "main": "./lib/index.js",
+  "icon": "./icon.svg",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "persona",
+    "mbti",
+    "skill",
+    "agent-style"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": []
+    }
+  },
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "lib",
+    "skills",
+    "locale",
+    "cordis.patch.yml",
+    "icon.svg",
+    "README.md",
+    "README.zh-CN.md",
+    "CHANGELOG.md",
+    "docs"
+  ],
+  "peerDependencies": {
+    "@deepseek-ai/dsh-llm": ">=0.0.1-rc <2",
+    "@deepseek-ai/dsh-skill": ">=0.0.1-rc <2",
+    "@deepseek-ai/dsh-tools": ">=0.0.1-rc <2",
+    "@deepseek-ai/schemastery": "^3.18.0",
+    "schemastery": "^3.18.0"
+  },
+  "//peerDependenciesMeta": "DSH 的运行时解析器按 peerDependencies 判定「这个包可以引用安装体自带的包」。profile 内安装时包在 profiles/<name>/node_modules 之下，解析器会直接路由到安装体；用 link: 方式挂载时（开发态）必须声明这些 peer 才能解析。全部标 optional：profile 的 pnpm 配置是 autoInstallPeers: false，不需要也不应该由本包安装 DSH 自身的包。",
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh-llm": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-skill": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-tools": {
+      "optional": true
+    },
+    "@deepseek-ai/schemastery": {
+      "optional": true
+    },
+    "schemastery": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "test": "node tests/run-all.mjs",
+    "test:skill": "node tests/skill-contract.mjs",
+    "test:block": "node tests/render-block.mjs",
+    "test:guard": "node tests/guard-rules.mjs",
+    "test:state": "node tests/state-layers.mjs",
+    "test:sync": "node tests/floor-text-sync.mjs",
+    "doctor": "node tests/doctor.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yxdotnet/ai-character-driven-dsh.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yxdotnet/ai-character-driven-dsh/issues"
+  },
+  "homepage": "https://github.com/yxdotnet/ai-character-driven-dsh#readme"
+}

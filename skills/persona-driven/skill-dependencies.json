@@ -1,0 +1,283 @@
+{
+  "schema_version": "1",
+  "capabilities": [
+    "档位切换与查看",
+    "档位自动注入",
+    "安全底线拦截",
+    "验证下限约束",
+    "验证投入统计",
+    "领域映射落地",
+    "对照实验记录与判定"
+  ],
+  "dependencies": [
+    {
+      "id": "python-runtime",
+      "type": "runtime",
+      "required": true,
+      "auth_type": "none",
+      "capabilities": [
+        "档位切换与查看",
+        "档位自动注入",
+        "安全底线拦截",
+        "验证下限约束",
+        "验证投入统计",
+        "领域映射落地",
+        "对照实验记录与判定"
+      ],
+      "checks": [
+        {
+          "id": "python-version",
+          "type": "python",
+          "required": true,
+          "min_version": "3.10"
+        }
+      ],
+      "setup": {
+        "official_home_url": "https://www.python.org/",
+        "official_docs_url": "https://docs.python.org/3/",
+        "download_url": "https://www.python.org/downloads/",
+        "steps": [
+          "运行 python scripts/check_environment.py 查看「Python 版本」一项。",
+          "版本不低于 3.10 时跳过安装，不重复讲解配置。",
+          "不满足时从官方下载页按系统安装，随后重新运行检查。"
+        ],
+        "verify": "python scripts/check_environment.py 的「Python 版本」不低于 3.10",
+        "security": "只从官方渠道安装。本技能脚本仅使用 Python 标准库，不安装第三方包，不联网，不读取凭据。唯一子进程调用在 doctor 自检：执行本技能自己注册的那条注入命令，argv 列表传参、不使用 shell、15 秒超时，除此之外不执行任何外部命令。",
+        "verified_at": "2026-09-24",
+        "applies_to_version": "3.10 及以上"
+      },
+      "degradation": [
+        {
+          "capability": "档位切换与查看",
+          "trigger": "Python 缺失或低于 3.10",
+          "fallback": "人工编辑状态文件不可行，改为每次由模型按用户当次描述临时遵守风格",
+          "user_input": "用户对风格的描述",
+          "limitations": "档位无法持久化，跨轮不保持，也无法查看当前档位",
+          "evidence_label": "未验证",
+          "recovery": "安装 Python 3.10 及以上后重新运行 scripts/check_environment.py",
+          "stop_condition": "任务要求档位跨轮稳定生效"
+        },
+        {
+          "capability": "档位自动注入",
+          "trigger": "Python 缺失或低于 3.10",
+          "fallback": "无脚本可用，只能由用户手动把档位表粘贴进对话",
+          "user_input": "档位表内容",
+          "limitations": "无自动注入，模型是否遵守不可控",
+          "evidence_label": "未验证",
+          "recovery": "安装 Python 后启用档位与 DSH 插件",
+          "stop_condition": "需要可验证的行为约束"
+        },
+        {
+          "capability": "安全底线拦截",
+          "trigger": "Python 缺失或低于 3.10",
+          "fallback": "按 references/safety-floor.md 的处理流程人工逐条执行",
+          "user_input": "无",
+          "limitations": "无强制确认，只能靠自觉，无法拦下未经确认的高风险操作",
+          "evidence_label": "未验证",
+          "recovery": "安装 Python 后启用 DSH 插件",
+          "stop_condition": "任务将触及不可逆操作且要求强制确认"
+        },
+        {
+          "capability": "验证下限约束",
+          "fallback": "退化为纯文档规则：模型读到 SKILL.md「优先级契约」第 2 层时按验证下限执行，但档位不落盘、规则也不会每轮重申",
+          "user_input": "无（规则自足，不需要用户额外输入）",
+          "limitations": "验证下限本就没有钩子兜底，它是书面规则 + 每轮注入；失去运行时后只在被阅读的当轮生效，跨轮遵守不可保证，也无法区分「真的遵守了」与「刚好没碰到」",
+          "evidence_label": "未验证",
+          "recovery": "安装 Python 3.10 及以上后重新设置档位（或装 DSH 插件），恢复每轮注入",
+          "stop_condition": "任务要求验证下限在多轮之间稳定生效时，先恢复运行时再继续",
+          "trigger": "缺少 Python 运行时，或版本低于 3.10，规则无法随档位写入与读取"
+        },
+        {
+          "capability": "验证投入统计",
+          "trigger": "Python 缺失或低于 3.10",
+          "fallback": "停止输出量化统计，改为人工记录定性观察",
+          "user_input": "无",
+          "limitations": "对照实验的判定线无法计算",
+          "evidence_label": "未验证",
+          "recovery": "安装 Python 后重新采集",
+          "stop_condition": "任务要求量化证据"
+        },
+        {
+          "capability": "领域映射落地",
+          "trigger": "Python 缺失或低于 3.10",
+          "fallback": "领域映射文件为纯 Markdown，可直接人工阅读并按档位执行",
+          "user_input": "无",
+          "limitations": "该功能本身不依赖脚本，降级影响很小；失去的是 doctor 对文件完整性的检查",
+          "evidence_label": "部分验证",
+          "recovery": "安装 Python 后运行 check_environment.py 核对文件完整性",
+          "stop_condition": "无"
+        },
+        {
+          "capability": "对照实验记录与判定",
+          "fallback": "退化为手工记录调用与测试次数；数据不完整时只输出明细，不给结论",
+          "user_input": "漏关键验证次数需人工复核改动后经 --missed 传入，脚本无法自动判定",
+          "limitations": "只统计工具调用次数与分类，另自动统计注入条数与字符数（不折算 token）；不读取平台计费数据，token 由人从会话用量读数、经 tokens 子命令补记（1.5.4 起）；status/next 提供跑中体检与冻结顺序导航（1.5.5 起）；判定线预先写定，不支持自定义",
+          "evidence_label": "部分验证",
+          "recovery": "按 verdict 列出的阻塞项逐条修好后重跑 enter 与 verdict",
+          "stop_condition": "出现任何阻塞项时停止判定，不得在数据不完整时给出结论",
+          "trigger": "缺少 Python 运行时，或版本低于 3.10，实验脚本无法执行"
+        }
+      ]
+    },
+    {
+      "id": "dsh-plugin",
+      "type": "permission",
+      "required": false,
+      "auth_type": "none",
+      "capabilities": [
+        "档位自动注入",
+        "安全底线拦截",
+        "验证下限约束",
+        "验证投入统计",
+        "对照实验记录与判定"
+      ],
+      "checks": [
+        {
+          "id": "plugin-bundle-present",
+          "type": "json_field",
+          "required": false,
+          "path": "$DSH_HOME/profiles/*/package.json",
+          "field": "dsh.profile.bundles"
+        }
+      ],
+      "setup": {
+        "steps": [
+          "用 DSH 的 plugin_manager（install_bundle）安装 @dsh-external/persona-driven；或把该 bundle 写进 profile 的 dsh.profile.bundles 后执行安装。",
+          "重启 DSH。",
+          "运行 python scripts/persona.py doctor 确认「DSH 插件」一项。",
+          "也可直接检查 DSH 的插件清单里有没有该 bundle。",
+          "（可选兼容桥）python scripts/persona.py install-hooks --apply --write-confirmed 写出 $DSH_HOME/persona/hooks.json，再加一行 Cordis 配置 mount @deepseek-ai/dsh-hooks-claude-code 并把 configPath 指向它。"
+        ],
+        "verify": "python scripts/persona.py doctor 显示「DSH 插件」已注册且自检通过，且会话中每轮出现档位块",
+        "rotate_or_revoke": "撤销：用 plugin_manager 卸载该 bundle，或把它从 profile 的 dsh.profile.bundles 里删掉后重新安装，然后重启 DSH。若走兼容桥，删除 $DSH_HOME/persona/hooks.json 里含 hook_persona.py 的钩子项，或把 $DSH_HOME/persona/backup/ 中最新的备份复制回去。只停用注入可运行 python scripts/persona.py off --scope session（只关当前对话；不加 --scope 会关掉全局档位，影响所有未单独设档的对话）。",
+        "security": "插件以当前用户身份运行：它注册技能、每轮注入档位块，并在安全底线命中时经 tools/pre-execute 返回 { kind: 'ask', reason }，由 DSH 的 Approval 服务向用户确认（ask 不阻断，不发生实际写入）。脚本不联网、不读取凭据、不执行外部命令，异常时静默放行。原生插件路径不写任何 settings.json；兼容桥只写本技能自己的 $DSH_HOME/persona/hooks.json，写盘前自动备份。本技能不使用 SKILL.md frontmatter 承载钩子——DSH 的 frontmatter 不识别该字段，多写的键会被忽略。",
+        "verified_at": "2026-09-24",
+        "applies_to_version": "DSH 插件 bundle 接口（@dsh-external/persona-driven）"
+      },
+      "degradation": [
+        {
+          "capability": "档位自动注入",
+          "trigger": "DSH 插件未安装、未注册生效，或平台调整了插件接口",
+          "fallback": "每轮开始先运行 python scripts/persona.py get，把输出的档位块贴进推理再执行",
+          "user_input": "无",
+          "limitations": "只能影响不能约束；模型可能不遵守档位，且注入会随上下文压缩丢失",
+          "evidence_label": "部分验证",
+          "recovery": "按 references/setup-guide.md 安装 DSH 插件（或兼容桥）后重启 DSH",
+          "stop_condition": "用户要求可验证的行为约束而注入通道无法生效"
+        },
+        {
+          "capability": "安全底线拦截",
+          "trigger": "DSH 插件未生效",
+          "fallback": "按 references/safety-floor.md 的处理流程，在每次触及高风险操作前人工执行五步流程",
+          "user_input": "无",
+          "limitations": "软约束，无法阻止未经确认的执行；此状态下不得声称已有硬保护",
+          "evidence_label": "部分验证",
+          "recovery": "启用 DSH 插件后恢复强制确认",
+          "stop_condition": "任务将执行不可逆操作且用户要求强制确认"
+        },
+        {
+          "capability": "验证下限约束",
+          "fallback": "降级模式：模型每轮开头自行读取档位并遵守 SKILL.md 的验证下限，规则仍写明在文档里",
+          "user_input": "无（用户显式说「不用验」时可豁免，须在回复中说明豁免项与风险）",
+          "limitations": "既没有强制力也没有每轮注入，「取最严」「低档成立前提」等约束全靠模型自觉；两类约束在真实行为上的差异尚未被测出",
+          "evidence_label": "未验证",
+          "recovery": "安装 DSH 插件后恢复每轮注入；用户不装也可照常按降级模式工作",
+          "stop_condition": "需要可验证的行为约束而不是书面要求时，先装 DSH 插件再继续",
+          "trigger": "未安装 DSH 插件，没有每轮注入通道"
+        },
+        {
+          "capability": "验证投入统计",
+          "trigger": "DSH 插件未生效，或埋点目录被清理",
+          "fallback": "停止输出统计结论，改为记录定性观察，并说明对照实验暂无法计算判定线",
+          "user_input": "无",
+          "limitations": "拿不到测试次数与调用次数的量化对比",
+          "evidence_label": "部分验证",
+          "recovery": "启用 DSH 插件后重新采集",
+          "stop_condition": "任务要求量化证据而埋点不可用"
+        },
+        {
+          "capability": "对照实验记录与判定",
+          "fallback": "退化为手工记录调用与测试次数；数据不完整时只输出明细，不给结论",
+          "user_input": "漏关键验证次数需人工复核改动后经 --missed 传入，脚本无法自动判定",
+          "limitations": "只统计工具调用次数与分类，另自动统计注入条数与字符数（不折算 token）；不读取平台计费数据，token 由人从会话用量读数、经 tokens 子命令补记（1.5.4 起）；status/next 提供跑中体检与冻结顺序导航（1.5.5 起）；判定线预先写定，不支持自定义",
+          "evidence_label": "部分验证",
+          "recovery": "按 verdict 列出的阻塞项逐条修好后重跑 enter 与 verdict",
+          "stop_condition": "出现任何阻塞项时停止判定，不得在数据不完整时给出结论",
+          "trigger": "度量注入未安装，对照组与实验组都收不到埋点，无法切分运行窗口"
+        }
+      ]
+    }
+  ],
+  "functional_degradations": [
+    {
+      "capability": "档位切换与查看",
+      "trigger": "未设置任何档位，或全局与项目状态文件均不存在",
+      "fallback": "按用户当次任务的风格描述临时推断档位并遵守，在回复首行说明推断依据",
+      "user_input": "用户对风格的描述",
+      "limitations": "跨轮不保持，下一轮需重新推断；无状态可查",
+      "evidence_label": "已验证",
+      "recovery": "运行 python scripts/persona.py set <类型|预设> 固化档位",
+      "stop_condition": "用户拒绝设定档位且风格描述前后矛盾"
+    },
+    {
+      "capability": "档位自动注入",
+      "trigger": "DSH 插件未安装，或安装后未注册生效",
+      "fallback": "每轮手动运行 python scripts/persona.py get 并遵守输出",
+      "user_input": "无",
+      "limitations": "注入会随上下文压缩丢失，且依赖模型自觉",
+      "evidence_label": "部分验证",
+      "recovery": "安装 DSH 插件并重启 DSH 后恢复自动注入",
+      "stop_condition": "用户要求可验证的硬约束"
+    },
+    {
+      "capability": "安全底线拦截",
+      "trigger": "DSH 插件未生效或脚本执行环境不可用",
+      "fallback": "按 references/safety-floor.md 的五步流程人工执行，并在回复中说明当前为软约束",
+      "user_input": "无",
+      "limitations": "无法阻止未经确认的高风险操作",
+      "evidence_label": "部分验证",
+      "recovery": "启用 DSH 插件后恢复强制确认",
+      "stop_condition": "任务将执行不可逆操作"
+    },
+    {
+      "capability": "验证下限约束",
+      "trigger": "DSH 插件未生效，或模型未遵守每轮注入的规则",
+      "fallback": "按 SKILL.md「优先级契约」第 2 层与各领域判定表人工执行，并在回复中说明当前为软约束",
+      "user_input": "无。用户在当前任务里明确说「这次不用验」时可豁免，但需在回复里说明豁免的是哪一项、风险是什么",
+      "limitations": "本约束没有钩子兜底，强制力弱于安全底线：后者由原生 tools/pre-execute 把命中操作转为 ask，而它只是「书面规则 + 每轮注入」，生效依赖模型遵守规则。规则层已做 6 用例 × 2 组对照（缺陷修复类被拦住、纯文案未被误升档），行为层效果未验证。",
+      "evidence_label": "部分验证",
+      "recovery": "启用 DSH 插件后随档位每轮注入，规则保持在场；但注入不改变「无钩子硬约束」这一差别",
+      "stop_condition": "用户要求可强制执行的验证深度——本技能只能提供每轮在场的规则，不提供硬约束"
+    },
+    {
+      "capability": "验证投入统计",
+      "trigger": "DSH 插件未生效，或埋点文件被 reset-metrics 清理",
+      "fallback": "停止输出统计结论，改为定性观察并说明判定线无法计算",
+      "user_input": "无",
+      "limitations": "无法支撑对照实验的量化判定",
+      "evidence_label": "已验证",
+      "recovery": "启用 DSH 插件后重新采集，再运行 python scripts/persona.py report",
+      "stop_condition": "任务要求量化证据"
+    },
+    {
+      "capability": "领域映射落地",
+      "trigger": "references/ 下对应领域映射文件缺失（references/domains-x.md）",
+      "fallback": "只用档位定义与安全底线执行，不套用该领域专属判定标准",
+      "user_input": "无",
+      "limitations": "缺少该领域的红线与验证强度换算规则，判断精度下降",
+      "evidence_label": "已验证",
+      "recovery": "补齐对应领域文件后重试",
+      "stop_condition": "任务对该领域规范有硬依赖"
+    },
+    {
+      "capability": "对照实验记录与判定",
+      "trigger": "缺少 Python 运行时；或埋点时间戳不足以切分运行窗口（窗口短于 2 秒）",
+      "fallback": "退化为手工记录调用与测试次数；数据不完整时只输出明细，不给结论",
+      "user_input": "漏关键验证次数需人工复核改动后经 --missed 传入，脚本无法自动判定",
+      "limitations": "只统计工具调用次数与分类，另自动统计注入条数与字符数（不折算 token）；不读取平台计费数据，token 由人从会话用量读数、经 tokens 子命令补记（1.5.4 起）；status/next 提供跑中体检与冻结顺序导航（1.5.5 起）；判定线预先写定，不支持自定义",
+      "evidence_label": "部分验证",
+      "recovery": "按 verdict 列出的阻塞项逐条修好后重跑 enter 与 verdict",
+      "stop_condition": "出现任何阻塞项时停止判定，不得在数据不完整时给出结论"
+    }
+  ]
+}

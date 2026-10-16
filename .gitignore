@@ -1,0 +1,39 @@
+# 依赖与构建产物
+node_modules/
+dist/
+*.tgz
+
+# 本机状态：人格档位、埋点、会话档位、实验数据、备份。
+# 这些是**使用数据**，不是仓库内容；误提交会把别人的对话痕迹带上去。
+.dsh/
+.workbuddy/
+persona-dashboard.html
+metrics/
+sessions/
+experiments/
+backup/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# 编辑器与系统
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 临时与日志
+*.log
+*.tmp
+*.bak
+*.bak-*
+*~
