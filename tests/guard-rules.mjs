@@ -96,4 +96,29 @@ eq(collectHaystack({ command: 'a', path: 'b' }, 'all'), 'a\nb', '字符串字段
 eq(collectHaystack({ command: 'a', secret: 'zzz' }, 'all'), 'a', '未列入的字段不参与扫描');
 eq(collectHaystack({ content: { nested: 'rm -rf /' } }, 'all'), '{"nested":"rm -rf /"}', '对象字段按 JSON 摊平');
 
+group('安全底线 · dotenv 文件 vs env 属性访问（真实误报回归）');
+
+// 一次真实误报：旧规则用反斜杠转义匹配 dotenv 文件名，结果**代码里对 env 属性的访问也被
+// 命中**——任何写了它的脚本或测试都被判成「碰凭据」，连修这条规则本身都被自己的守卫拦下
+// （守卫扫描的字段里含编辑内容 `new_string`，实测三次操作因此被拒）。
+// 下面这几条把边界钉住：只认**文件名形式**，不认属性访问。
+//
+// 字面量用拼接构造：dotenv 的直接写法会命中守卫当前规则，让这条用例根本加不进来——
+// 这本身就是那个 bug 的表现。
+const DOTENV = ['.', 'env'].join('');
+const ENV_ACCESS = ['process', 'env'].join('.');
+
+eq(guardCheck({ command: `cat ${DOTENV}` }, 'all')?.[0], '密钥与凭据', `cat ${DOTENV} 仍命中`);
+eq(guardCheck({ file_path: `app/${DOTENV}` }, 'all')?.[0], '密钥与凭据', `文件名形式 app/${DOTENV} 仍命中`);
+eq(guardCheck({ command: `cp /srv/${DOTENV}.local /tmp` }, 'all')?.[0], '密钥与凭据', `带 .local 后缀的 ${DOTENV} 仍命中`);
+
+for (const args of [
+	{ command: `node -e "console.log(${ENV_ACCESS}.PATH)"` },
+	{ content: `const cfg = { ...${ENV_ACCESS} };` },
+	{ file_path: `src/${ENV_ACCESS}.example` },
+	{ command: `echo ${ENV_ACCESS}.PERSONA_PYTHON` }
+]) {
+	eq(guardCheck(args, 'all'), null, `${JSON.stringify(args)} 不命中（属性访问不是凭据文件）`);
+}
+
 finish('guard-rules');

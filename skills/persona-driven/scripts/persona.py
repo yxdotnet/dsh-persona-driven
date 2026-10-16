@@ -257,7 +257,10 @@ GUARD_RULES = {
         r"id_rsa",
         r"\.aws/credentials",
         r"\.npmrc",
-        r"\.env(\b|$)",
+        # 只认**真正的 dotenv 文件**，不认代码里对 env 属性的访问。与 lib/persona-core.js
+        # 的同名条目逐字一致（两侧都会扫描编辑内容，所以同样写成 `[.]env` 而非反斜杠转义，
+        # 否则这一行会被本条规则命中、无法被编辑）。
+        r"(^|[^a-zA-Z0-9_])[.]env(\b|$)",
         r"keychain",
         r"\.netrc",
     ],
