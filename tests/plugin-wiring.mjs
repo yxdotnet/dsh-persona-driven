@@ -374,7 +374,7 @@ const evSession = { id: sessionId, header: { id: sessionId, cwd: sandbox } };
 onSessionEvent(evSession, { type: 'approval/asked', data: { id: 'ap-1', toolName: 'pwsh', reason: '密钥与凭据' } });
 onSessionEvent(evSession, { type: 'approval/decided', data: { id: 'ap-1', outcome: 'rejected' } });
 onSessionEvent(evSession, { type: 'approval/decided', data: { id: 'ap-unknown', outcome: 'allowed-once' } });
-onSessionEvent(evSession, { type: 'turn/start', data: { turn: 1 } });
+onSessionEvent(evSession, { type: 'assistant/message', data: { turn: 1 } });
 onSessionEvent(evSession, { type: 'approval/decided', data: { id: 'ap-2' } }); // 缺 outcome，应跳过
 
 let evThrew = null;
@@ -397,6 +397,32 @@ eq(approvalLines[0].tool, 'pwsh', 'toolName 从 asked 关联回来');
 eq(approvalLines[0].session, sessionId, 'session 取自 session.id');
 eq(typeof approvalLines[0].proj === 'string' && approvalLines[0].proj.length > 0, true, 'proj 取自 session.header.cwd');
 eq(approvalLines[1].tool, undefined, 'asked 缺失时不编造 tool');
+
+group('装配集成 · 每轮边界与工具结局');
+
+onSessionEvent(evSession, { type: 'turn/start', data: { turn: 7 } });
+onSessionEvent(evSession, { type: 'turn/start', data: { turn: 'x' } });
+const onToolResult = k.events.get('tools/result');
+eq(typeof onToolResult, 'function', '订阅了 tools/result');
+onToolResult({ name: 'read', arguments: { path: 'a' }, agent: offAgent }, { isError: false });
+onToolResult({ name: 'read', arguments: { path: 'b' }, agent: offAgent }, { isError: true });
+
+const allRecords = readdirSync(metrics)
+	.filter((name) => !name.startsWith('injections-') && !name.startsWith('dials-'))
+	.flatMap((name) => readFileSync(join(metrics, name), 'utf8').trim().split('\n'))
+	.filter((line) => line !== '')
+	.map((line) => JSON.parse(line));
+
+const turnLines = allRecords.filter((record) => record.ev === 'turn');
+eq(turnLines.length, 2, '两条 turn/start 各落一条');
+eq(turnLines[0].turn, 7, 'turn 号落对');
+eq(turnLines[1].turn, null, '非数字 turn 落 null，不编造');
+eq(turnLines[0].session, sessionId, 'turn 记录带 session');
+
+const toolLines = allRecords.filter((record) => record.tool === 'read' && typeof record.ph === 'string');
+eq(toolLines.length, 2, '两次 tools/result 各落一条');
+eq(toolLines[0].ok, true, '成功调用 ok=true');
+eq(toolLines[1].ok, false, '失败调用 ok=false（读 result.isError，不读原文）');
 
 // 收尾：清理临时状态，避免污染真实 HOME。
 rmSync(sandbox, { recursive: true, force: true });
