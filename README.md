@@ -160,7 +160,7 @@ dial block twice (same content, pure token waste).
 
 ```powershell
 cd <本机路径>\ai-character-driven-dsh
-npm test        # 156 assertions + install self-check
+npm test        # 223 assertions + install self-check
 npm run doctor  # install self-check only
 ```
 

@@ -17,7 +17,8 @@ const SUITES = [
 	'render-block.mjs',
 	'guard-rules.mjs',
 	'state-layers.mjs',
-	'floor-text-sync.mjs'
+	'floor-text-sync.mjs',
+	'plugin-wiring.mjs'
 ];
 
 const failures = [];

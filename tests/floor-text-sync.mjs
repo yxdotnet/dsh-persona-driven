@@ -27,6 +27,10 @@ try {
 	raw = execFileSync(
 		python,
 		[
+			// -B：不要写 .pyc。persona.py 自己也设了 sys.dont_write_bytecode，但那是在它
+			// 被导入之后才生效的，拦不住它自己的 __pycache__；这里从解释器层面关掉，
+			// 保证跑测试不在技能目录里留下任何生成物。
+			'-B',
 			'-c',
 			'import json,sys; sys.path.insert(0,"."); import persona as p; ' +
 				'print(json.dumps({"SAFETY_FLOOR_LINE":p.SAFETY_FLOOR_LINE,"VERIFY_FLOOR_LINE":p.VERIFY_FLOOR_LINE,' +

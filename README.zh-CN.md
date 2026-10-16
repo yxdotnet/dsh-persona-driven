@@ -152,7 +152,7 @@ python scripts/persona.py install-hooks --apply --write-confirmed
 
 ```powershell
 cd <本机路径>\ai-character-driven-dsh
-npm test        # 156 条断言 + 安装自检
+npm test        # 223 条断言 + 安装自检
 npm run doctor  # 只看安装自检
 ```
 
