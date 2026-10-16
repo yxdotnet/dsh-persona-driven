@@ -6,7 +6,7 @@
 > a bundled skill, per-turn injection and a hard safety floor, all on native Cordis
 > extension points. **No Git Bash, and no per-turn Python subprocess.**
 
-[中文](README.zh-CN.md) · [Changelog](CHANGELOG.md) · [Install & verify](docs/安装与验收.md) · [Architecture & porting notes](docs/架构与移植说明.md)
+[中文](README.zh-CN.md) · [Changelog](CHANGELOG.md) · [Install & verify](docs/安装与验收.md) · [Architecture & porting notes](docs/架构与移植说明.md) · [Release & distribution](docs/发布与分发.md)
 
 [![topic: dsh-plugin](https://img.shields.io/badge/topic-dsh--plugin-blue)](https://github.com/topics/dsh-plugin)
 [![license: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)

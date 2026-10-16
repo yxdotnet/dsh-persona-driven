@@ -5,7 +5,7 @@
 > 技能的 **DeepSeek Harness 原生化移植**：内置技能、每轮注入、安全底线强制确认，
 > 全部走 Cordis 原生扩展点，**不需要 Git Bash，也不需要每轮起 Python 子进程**。
 
-[English](README.md) · [更新日志](CHANGELOG.md) · [安装与验收](docs/安装与验收.md) · [架构与移植说明](docs/架构与移植说明.md)
+[English](README.md) · [更新日志](CHANGELOG.md) · [安装与验收](docs/安装与验收.md) · [架构与移植说明](docs/架构与移植说明.md) · [发布与分发](docs/发布与分发.md)
 
 [![topic: dsh-plugin](https://img.shields.io/badge/topic-dsh--plugin-blue)](https://github.com/topics/dsh-plugin)
 [![license: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
