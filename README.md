@@ -8,6 +8,9 @@
 
 [中文](README.zh-CN.md) · [Changelog](CHANGELOG.md) · [Install & verify](docs/安装与验收.md) · [Architecture & porting notes](docs/架构与移植说明.md)
 
+[![topic: dsh-plugin](https://img.shields.io/badge/topic-dsh--plugin-blue)](https://github.com/topics/dsh-plugin)
+[![license: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 ---
 
 ## In 30 seconds
@@ -64,6 +67,20 @@ never reasons to verify less.
 
 ## Install
 
+### Fastest — one command from GitHub (L3, recommended)
+
+```bash
+dsh plugin --profile <profile> add github:yxdotnet/dsh-persona-driven
+```
+
+That single command installs the package **and** writes `@dsh-external/persona-driven`
+into the profile's `dsh.profile.bundles`; restart DSH and it is live. The same spec can be
+pasted into the **Plugins** page in DSH's Web sidebar.
+
+> Measured: pnpm finishes in 9.1 s; `dsh <profile> --dump-config` shows
+> `- id: persona-driven` with zero warnings. Once published to npm, the equivalent is
+> `add @dsh-external/persona-driven`.
+
 ### Option A — skill only (simplest, L1/L2)
 
 Copy `skills/persona-driven/` into a DSH skill root; DSH discovers it automatically.
@@ -100,15 +117,14 @@ The plugin registers the skill, injects the dial block every turn, and turns the
 floor into a real approval prompt.
 
 ```powershell
-# 1) add it to a profile (<profile> is desktop / web / tui / ...)
+# add it to a profile (<profile> is desktop / web / tui / ...;
+# replace <path-to-this-repo> with where you cloned it)
 dsh plugin --profile <profile> add <path-to-this-repo>
 
-# 2) add the bundle to that profile's list
-#    edit $env:USERPROFILE\.dsh\profiles\<profile>\package.json
-#    and append "@dsh-external/persona-driven" to dsh.profile.bundles
-
-# 3) restart DSH
+# then restart DSH — no hand-editing of the bundle list; the command above does it
 ```
+
+The command rewrites `dsh.profile.bundles` to include:
 
 ```json
 {

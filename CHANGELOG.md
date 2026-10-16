@@ -89,3 +89,16 @@ WorkBuddy 版注册了 5 个钩子事件，DSH 的 Claude Code 桥接支持其�
 - `tests/run-all.mjs`：**跳过不再被算作通过**。此前汇总只看退出码，有用例跳过时仍报
   「全部用例通过（6 个套件）」；现在区分「通过 / 跳过（未验证）/ 失败」，并显式声明
   跳过的套件没有被真正跑过。
+
+### 文档：补上社区分发路径
+
+- README（中英）新增置顶安装方式：**`dsh plugin --profile <profile> add
+  github:yxdotnet/dsh-persona-driven`**，一条命令装包并自动写入 `dsh.profile.bundles`。
+  实测 pnpm 9.1 秒完成、组合无警告、技能确实注册进会话目录。
+- 修正同一处**过时说明**：原文让用户手工编辑 `dsh.profile.bundles`——`dsh plugin add`
+  本来就会自己写，这一步是多余的。
+- 顶部加 topic / license 徽章。
+- 背景：DSH **产品本身没有插件市场**（源码树 `marketplace` 零命中），社区生态围绕
+  GitHub topic **`dsh-plugin`** 建立（注册表 `vbarter/dsh-plugin-registry` 按该 topic
+  每 2 小时自动发现；另有若干 awesome 目录）。本仓库的清单已满足收录契约
+  （根 `package.json` + `dsh.bundle.patch` 为安全相对路径），**只差声明该 topic**。

@@ -7,6 +7,9 @@
 
 [English](README.md) · [更新日志](CHANGELOG.md) · [安装与验收](docs/安装与验收.md) · [架构与移植说明](docs/架构与移植说明.md)
 
+[![topic: dsh-plugin](https://img.shields.io/badge/topic-dsh--plugin-blue)](https://github.com/topics/dsh-plugin)
+[![license: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
 ---
 
 ## 30 秒了解
@@ -56,6 +59,19 @@
 
 ## 安装
 
+### 最快：一条命令从 GitHub 装（L3 级，推荐）
+
+```bash
+dsh plugin --profile <profile> add github:yxdotnet/dsh-persona-driven
+```
+
+这一条命令会**装包，并自动把 `@dsh-external/persona-driven` 写进该 profile 的
+`dsh.profile.bundles`**，重启 DSH 即可生效。也可以在 DSH 的 Web 侧边栏 **Plugins** 页
+粘贴同一个 spec。
+
+> 实测：pnpm 9.1 秒完成；`dsh <profile> --dump-config` 里出现 `- id: persona-driven`
+> 且零警告。发布到 npm 之后，等价写法是 `add @dsh-external/persona-driven`。
+
 ### 方式 A：只要技能（最省事，L1/L2 级）
 
 把 `skills/persona-driven/` 整个目录复制到 DSH 的技能根目录即可，DSH 会自动发现它：
@@ -91,17 +107,14 @@ DSH 的技能根目录按优先级（数字小者胜）：
 插件会做三件事：注册技能、每轮注入档位块、把安全底线变成真实的人工确认。
 
 ```powershell
-# 1) 装进某个 profile（把 <profile> 换成你的，例如 desktop / web / tui）
+# 装进某个 profile（把 <profile> 换成你的，例如 desktop / web / tui；
+# 把 <本仓库目录> 换成你 clone 下来的实际路径）
 dsh plugin --profile <profile> add <本仓库目录>
 
-# 2) 把本包加进该 profile 的 bundle 列表
-#    编辑 $env:USERPROFILE\.dsh\profiles\<profile>\package.json
-#    在 dsh.profile.bundles 数组里加入 "@dsh-external/persona-driven"
-
-# 3) 重启 DSH
+# 然后重启 DSH —— 不需要手工改 bundle 列表，上面这条命令会自己加
 ```
 
-`dsh.profile.bundles` 的样子：
+`dsh.profile.bundles` 会被自动写成这样：
 
 ```json
 {
