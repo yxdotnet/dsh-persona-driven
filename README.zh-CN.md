@@ -165,7 +165,7 @@ python scripts/persona.py install-hooks --apply --write-confirmed
 
 ```powershell
 cd <本仓库目录>
-npm test        # 223 条断言 + 安装自检（接线套件需 DSH node_modules，未配时如实报「跳过未验证」）
+npm test        # 224 条断言 + 安装自检（接线套件需 DSH node_modules，未配时如实报「跳过未验证」）
 npm run doctor  # 只看安装自检
 ```
 
@@ -192,8 +192,29 @@ python scripts/persona.py get      # 当前生效的档位与它所在的层
 | 状态目录 | `~/.workbuddy/persona` | `$DSH_HOME/persona`（缺省 `~/.dsh/persona`） |
 | 项目层 | `<cwd>/.workbuddy/persona` | `<cwd>/.dsh/persona` |
 | 会话标识 | `CODEBUDDY_SESSION_ID` | `DSH_SESSION_ID`（保留旧名回退） |
-| 网页面板 | 无 | 只读状态药丸（`lib/client.js`） |
+| 网页面板 | 无 | 只读状态药丸；**默认关闭**（见下，取不到数据） |
 | 压缩后重注入 | `PreCompact` | **不支持**（见下） |
+
+### 网页面板默认关闭（取不到数据）
+
+药丸 `lib/client.js` **默认不启用**。原因不是省事，是它拿不到该显示的东西：
+
+- 宿主渲染 `conversation.composer.dock` 时传的是**空 props**（宿主源码里就是
+  `renderSlot("conversation.composer.dock", {})`）；
+- 会话标识不在页面 URL 里，客户端也没有可注入的 session 服务（`inject` 只有
+  `slots` 这类）。
+
+于是它只能不带 `?session=` 去拉数据，而路由在缺会话标识时退回**全局层** ——
+但 v1.5.33 起档位默认写在**会话层**，全局层通常是空的，于是 `persona` 为 null、
+药丸 `return null`，**永远不显示**。实测：
+
+| 调用 | 返回 |
+|---|---|
+| 不带 `?session=`（客户端就是这么调的） | `{"layer":"global","persona":null}` |
+| `?session=<本会话>` | `{"layer":"session","persona":"ENTJ","dialsText":"P5/V3/R4/S2/D4/E2/ST4/W1"}` |
+
+只有显式设了**全局**档位（`set … --scope 全局`）时，开 `webPanel: true` 才有意义 ——
+那时路由读的正是全局层，药丸显示正确。**宁可默认关掉，也不留一个看着在工作、其实不工作的东西。**
 
 ### 一处真实的能力回退：`PreCompact`
 

@@ -176,7 +176,7 @@ dial block twice (same content, pure token waste).
 
 ```powershell
 cd <path-to-this-repo>
-npm test        # 223 assertions + install self-check (67 need a DSH node_modules; that suite reports "skipped, unverified" without one)
+npm test        # 224 assertions + install self-check (68 need a DSH node_modules; that suite reports "skipped, unverified" without one)
 npm run doctor  # install self-check only
 ```
 
@@ -204,8 +204,32 @@ python scripts/persona.py get      # the effective profile and which layer it ca
 | State root | `~/.workbuddy/persona` | `$DSH_HOME/persona` (default `~/.dsh/persona`) |
 | Project layer | `<cwd>/.workbuddy/persona` | `<cwd>/.dsh/persona` |
 | Session id | `CODEBUDDY_SESSION_ID` | `DSH_SESSION_ID` (older names still fall back) |
-| Web panel | none | read-only status pill (`lib/client.js`) |
+| Web panel | none | read-only status pill; **off by default** (see below, it cannot read the data) |
 | Re-inject after compaction | `PreCompact` | **unsupported** (see below) |
+
+### The web pill is off by default (it cannot read the data)
+
+`lib/client.js` **is not enabled by default**. Not to save effort — it cannot obtain what it
+is supposed to show:
+
+- the host renders `conversation.composer.dock` with **empty props** (literally
+  `renderSlot("conversation.composer.dock", {})` in the host source);
+- the session id is not in the page URL, and the client exposes no injectable session
+  service (only `slots` and the like).
+
+So the pill can only fetch without `?session=`, and the route falls back to the **global**
+layer when no session id is given — but since v1.5.33 dials are written to the **session**
+layer by default, the global layer is usually empty, so `persona` is null, the component
+returns null, and **the pill never appears**. Measured:
+
+| Request | Response |
+|---|---|
+| no `?session=` (what the client does) | `{"layer":"global","persona":null}` |
+| `?session=<this session>` | `{"layer":"session","persona":"ENTJ","dialsText":"P5/V3/R4/S2/D4/E2/ST4/W1"}` |
+
+Turning on `webPanel: true` only makes sense when a **global** persona is set explicitly
+(`set … --scope global`) — then the route reads the global layer and the pill is correct.
+**Better off by default than shipping something that looks like it works and does not.**
 
 ### One real, minor regression: `PreCompact`
 

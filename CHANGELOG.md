@@ -102,3 +102,27 @@ WorkBuddy 版注册了 5 个钩子事件，DSH 的 Claude Code 桥接支持其�
   GitHub topic **`dsh-plugin`** 建立（注册表 `vbarter/dsh-plugin-registry` 按该 topic
   每 2 小时自动发现；另有若干 awesome 目录）。本仓库的清单已满足收录契约
   （根 `package.json` + `dsh.bundle.patch` 为安全相对路径），**只差声明该 topic**。
+
+### 修复：网页面板默认关闭（它在默认档位下取不到数据）
+
+实测发现 `lib/client.js` 的状态药丸**永远不会显示**，不是显示得晚：
+
+| 调用 | 返回 |
+|---|---|
+| 不带 `?session=`（客户端就是这么调的） | `{"layer":"global","persona":null}` |
+| `?session=<本会话>` | `{"layer":"session","persona":"ENTJ","dialsText":"P5/V3/R4/S2/D4/E2/ST4/W1"}` |
+
+根因三条，都查证过：宿主渲染 `conversation.composer.dock` 时传的是**空 props**
+（源码里就是 `renderSlot("conversation.composer.dock", {})`）；会话标识不在页面 URL 里；
+客户端也没有可注入的 session 服务。于是它只能读全局层，而档位默认写在会话层，
+`persona` 为 null，组件 `return null`。
+
+改法：`webPanel` 默认 `false`，并在 `lib/index.js` / `lib/client.js` / `cordis.patch.yml` /
+两份 README / `docs/安装与验收.md` 里把实测数据与原因写清楚。只有显式设了**全局**档位
+（`--scope 全局`）时，打开 `webPanel: true` 才有意义。
+
+顺带修了测试里一个**真实的构造错误**：`plugin-wiring` 的 `DEFAULTS` 把 `...parsed` 写在
+字面量之后，于是真实默认值会覆盖字面量——`webPanel` 默认一改，那条路由用例就静默改用
+`false` 跑并红了 2 条。已调整次序（字面量只作兜底），把路由用例改为**显式**
+`webPanel: true`，并**新增一条反向断言**「默认配置下不注册路由」。
+该断言做过变异检验：把默认改回 `true` 时它确实红（67 通过 / 1 失败），不是摆设。

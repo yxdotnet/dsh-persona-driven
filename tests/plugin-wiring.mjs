@@ -102,7 +102,13 @@ writeFileSync(
 	'utf8'
 );
 
-/** 默认配置 + 真实 Config 校验结果（保证字段齐全）。 */
+/**
+ * 默认配置 + 真实 Config 校验结果（保证字段齐全）。
+ *
+ * 顺序很关键：**字面量必须在展开之前**。写反过一次——`webPanel` 的真实默认从 true 改成
+ * false 之后，`...parsed` 覆盖掉了字面量里的 true，于是那条路由用例静默改用 false 跑、
+ * 两条断言直接红。字面量在前 = 只在 `Config` 拿不到时兜底，真实默认始终以 `Config` 为准。
+ */
 const parsed = typeof plugin.Config === 'function' ? plugin.Config({}) : {};
 const DEFAULTS = {
 	injectBlock: true,
@@ -110,7 +116,7 @@ const DEFAULTS = {
 	guardScope: '',
 	metrics: true,
 	sessionStartInject: false,
-	webPanel: true,
+	webPanel: false,
 	skillDir: '',
 	...parsed
 };
@@ -303,12 +309,19 @@ ok(typeof record.chars === 'number' && record.chars > 0, '埋点 chars 是正数
 eq(record.session.includes(sessionId) || record.session.length > 0, true, '埋点 session 非空');
 ok(!Object.hasOwn(record, 'prompt'), '埋点不含提问原文（隐私条款）');
 
-group('装配集成 · 只读路由');
+group('装配集成 · 只读路由（需显式打开，默认关）');
 
+// webPanel 的真实默认是 false（理由见 lib/index.js 的注释：这个 slot 取不到会话标识）。
+// 所以这里必须显式打开——用例要如实反映「默认关、显式开」这个契约。
 const f = makeCtx(['webServer']);
-plugin.apply(f.ctx, { ...DEFAULTS });
+plugin.apply(f.ctx, { ...DEFAULTS, webPanel: true });
 eq(f.ctx.__route?.path, '/host/persona-driven/state', '注册了只读状态路由');
 eq(f.ctx.__route?.kind, 'exact', '路由是精确匹配');
+
+// 反向断言：默认配置下**不该**注册路由。少了这条，默认值退化成 true 也不会有人发现。
+const fOff = makeCtx(['webServer']);
+plugin.apply(fOff.ctx, { ...DEFAULTS });
+eq(fOff.ctx.__route, undefined, '默认配置下不注册只读路由（webPanel 默认关）');
 
 if (f.ctx.__route !== undefined) {
 	writeFileSync(join(home, 'persona', 'state.json'), JSON.stringify({ persona: 'INTJ', kind: 'type', level: 'l3', gist: '建筑师', dials: { PACE: 2, VERIFY: 5, RISK: 2, STRUCT: 5, DETAIL: 5, EXPLORE: 3, STYLE: 3, WARMTH: 3 }, updated_at: '2026-01-01T00:00:00+08:00' }), 'utf8');

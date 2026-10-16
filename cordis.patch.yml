@@ -16,7 +16,7 @@
 #     guardScope: all            # all | exec（exec 只扫命令与路径，不再因写文档误弹）
 #     metrics: true              # 关掉埋点写入
 #     sessionStartInject: false  # 追加 agent/created 期注入（默认关：turn 1 已被 pre-step 覆盖）
-#     webPanel: true             # 注册只读网页面板路由
+#     webPanel: false            # 只读网页面板路由（默认关：slot 不传会话标识，会话层档位看不到）
 #     skillDir: ''               # 覆盖技能负载目录
 - insert:
     - id: persona-driven
