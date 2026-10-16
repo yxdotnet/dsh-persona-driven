@@ -101,7 +101,7 @@ floor into a real approval prompt.
 
 ```powershell
 # 1) add it to a profile (<profile> is desktop / web / tui / ...)
-dsh plugin --profile <profile> add <本机路径>\dsh-persona-driven
+dsh plugin --profile <profile> add <path-to-this-repo>
 
 # 2) add the bundle to that profile's list
 #    edit $env:USERPROFILE\.dsh\profiles\<profile>\package.json
@@ -159,8 +159,8 @@ dial block twice (same content, pure token waste).
 ## Verify it actually works
 
 ```powershell
-cd <本机路径>\dsh-persona-driven
-npm test        # 223 assertions + install self-check
+cd <path-to-this-repo>
+npm test        # 223 assertions + install self-check (67 need a DSH node_modules; that suite reports "skipped, unverified" without one)
 npm run doctor  # install self-check only
 ```
 

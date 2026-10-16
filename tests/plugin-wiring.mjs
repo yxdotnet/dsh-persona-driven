@@ -29,13 +29,18 @@ import { L2_FLOOR_HEAD as L2_HEAD } from '../lib/persona-core.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
-/** 找一份含 `@deepseek-ai/dsh-llm` 的 node_modules。 */
+/**
+ * 找一份含 `@deepseek-ai/dsh-llm` 的 node_modules。
+ *
+ * 只探测两个**通用**位置，不写任何机器私有路径：
+ *   1. `PERSONA_DSH_NODE_MODULES` —— 支持的显式入口（DSH 源码检出，或解包后的 app.asar）；
+ *   2. 本仓库自己的 `node_modules` —— 本地开发时偶尔会有。
+ * 找不到就跳过（见下方提示），不猜、不遍历磁盘。
+ */
 function findDshModules() {
 	const candidates = [
 		(process.env.PERSONA_DSH_NODE_MODULES ?? '').trim(),
-		'<一份解包的 DSH>',
-		join(ROOT, 'node_modules'),
-		join(ROOT, '..', 'deepseek-harness', 'node_modules')
+		join(ROOT, 'node_modules')
 	].filter((candidate) => candidate !== '');
 	for (const candidate of candidates) {
 		if (existsSync(join(candidate, '@deepseek-ai', 'dsh-llm', 'package.json'))) return candidate;
@@ -45,7 +50,12 @@ function findDshModules() {
 
 // 还没装解析钩子就先自己重启一次把钩子装上——这样仓库根不需要、也不应该放 node_modules
 // （放了会被 DSH 的运行时解析器当成「本地候选包」，让已安装的插件与宿主加载两份 dsh-llm）。
-if ((process.env.PERSONA_DSH_NODE_MODULES ?? '') === '') {
+//
+// 判据是**钩子装没装**（本进程设置的哨兵变量），不是「用户有没有设环境变量」。
+// 早先版本用后者判断，后果是：照文档设了 PERSONA_DSH_NODE_MODULES 的人**永远不会**触发
+// 重启，钩子也就永远装不上，用例恒跳过——文档指的那条路根本走不通。
+const HOOK_ACTIVE = 'PERSONA_DSH_WIRING_HOOK_ACTIVE';
+if (process.env[HOOK_ACTIVE] !== '1') {
 	const found = findDshModules();
 	if (found !== '') {
 		const result = spawnSync(
@@ -53,7 +63,7 @@ if ((process.env.PERSONA_DSH_NODE_MODULES ?? '') === '') {
 			// 必须传 file:// URL：传 Windows 绝对路径会被 Node 当成协议 d: 而报
 			// ERR_UNSUPPORTED_ESM_URL_SCHEME。
 			['--import', new URL('./_dsh-resolver.mjs', import.meta.url).href, fileURLToPath(import.meta.url)],
-			{ stdio: 'inherit', env: { ...process.env, PERSONA_DSH_NODE_MODULES: found } }
+			{ stdio: 'inherit', env: { ...process.env, PERSONA_DSH_NODE_MODULES: found, [HOOK_ACTIVE]: '1' } }
 		);
 		process.exit(result.status ?? 1);
 	}
@@ -68,6 +78,9 @@ try {
 	console.log('    补齐方式：指出一份含 @deepseek-ai/dsh-llm 的 node_modules（DSH 源码检出，或解包后的 app.asar），例如');
 	console.log('      $env:PERSONA_DSH_NODE_MODULES = "D:/path/to/dsh/node_modules"; npm run test:wiring');
 	console.log('    本用例在缺依赖时不算通过，也不算失败——请勿据此宣称接线已验证。');
+	// 机器可读的跳过标记：run-all 靠它把「跳过」与「通过」区分开，
+	// 否则汇总会谎报「全部通过」。
+	console.log('SKIP: plugin-wiring 未运行（解析不到 DSH 运行时包）');
 	process.exit(0);
 }
 

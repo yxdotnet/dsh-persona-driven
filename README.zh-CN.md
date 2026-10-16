@@ -92,7 +92,7 @@ DSH 的技能根目录按优先级（数字小者胜）：
 
 ```powershell
 # 1) 装进某个 profile（把 <profile> 换成你的，例如 desktop / web / tui）
-dsh plugin --profile <profile> add <本机路径>\dsh-persona-driven
+dsh plugin --profile <profile> add <本仓库目录>
 
 # 2) 把本包加进该 profile 的 bundle 列表
 #    编辑 $env:USERPROFILE\.dsh\profiles\<profile>\package.json
@@ -151,8 +151,8 @@ python scripts/persona.py install-hooks --apply --write-confirmed
 ## 怎么确认它真的生效
 
 ```powershell
-cd <本机路径>\dsh-persona-driven
-npm test        # 223 条断言 + 安装自检
+cd <本仓库目录>
+npm test        # 223 条断言 + 安装自检（接线套件需 DSH node_modules，未配时如实报「跳过未验证」）
 npm run doctor  # 只看安装自检
 ```
 
