@@ -360,6 +360,44 @@ eq(threw, null, 'skills / webServer 都缺席时 apply() 不抛异常');
 ok(h.events.has('agent/pre-step') && h.events.has('tools/pre-execute'), '核心能力仍已注册');
 eq(h.warnings.length, 0, '没有产生插件警告');
 
+group('装配集成 · 审批结局埋点（session/event）');
+
+// 「用户批没批」只能从会话事件拿到——守卫返回 ask 之后插件就不再参与，tools/result 里
+// 看不到用户的选择。这里钉住四件事：订阅存在、只落 decided、toolName 能关联回来、
+// 畸形事件被兜住（树内 dsh-session-telemetry 的纪律：一个坏事件不能让后面的全丢）。
+const k = makeCtx();
+plugin.apply(k.ctx, { ...DEFAULTS });
+const onSessionEvent = k.events.get('session/event');
+eq(typeof onSessionEvent, 'function', '订阅了 session/event');
+
+const evSession = { id: sessionId, header: { id: sessionId, cwd: sandbox } };
+onSessionEvent(evSession, { type: 'approval/asked', data: { id: 'ap-1', toolName: 'pwsh', reason: '密钥与凭据' } });
+onSessionEvent(evSession, { type: 'approval/decided', data: { id: 'ap-1', outcome: 'rejected' } });
+onSessionEvent(evSession, { type: 'approval/decided', data: { id: 'ap-unknown', outcome: 'allowed-once' } });
+onSessionEvent(evSession, { type: 'turn/start', data: { turn: 1 } });
+onSessionEvent(evSession, { type: 'approval/decided', data: { id: 'ap-2' } }); // 缺 outcome，应跳过
+
+let evThrew = null;
+try {
+	onSessionEvent(null, null);
+} catch (error) {
+	evThrew = error;
+}
+eq(evThrew, null, '畸形事件被兜住，不向上抛');
+
+const approvalLines = readdirSync(metrics)
+	.filter((name) => !name.startsWith('injections-') && !name.startsWith('dials-'))
+	.flatMap((name) => readFileSync(join(metrics, name), 'utf8').trim().split('\n'))
+	.filter((line) => line !== '')
+	.map((line) => JSON.parse(line))
+	.filter((record) => record.ev === 'approval');
+eq(approvalLines.length, 2, '只落 decided（asked 不落、缺 outcome 跳过）');
+eq(approvalLines[0].outcome, 'rejected', '结局落对');
+eq(approvalLines[0].tool, 'pwsh', 'toolName 从 asked 关联回来');
+eq(approvalLines[0].session, sessionId, 'session 取自 session.id');
+eq(typeof approvalLines[0].proj === 'string' && approvalLines[0].proj.length > 0, true, 'proj 取自 session.header.cwd');
+eq(approvalLines[1].tool, undefined, 'asked 缺失时不编造 tool');
+
 // 收尾：清理临时状态，避免污染真实 HOME。
 rmSync(sandbox, { recursive: true, force: true });
 delete process.env.DSH_HOME;
