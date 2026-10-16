@@ -25,7 +25,7 @@
     "client": {
       "platform": "web",
       "immediately": true,
-      "inject": []
+      "inject": ["@deepseek-ai/dsh-client-ui-conversation"]
     }
   },
   "exports": {

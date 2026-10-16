@@ -11,7 +11,7 @@
  * 退出码：0 = 全部就绪；2 = 有阻塞项。未安装进 profile 只算「可选项未完成」，不算阻塞。
  */
 
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dshHome, personaRoot, readSkillMeta } from '../lib/persona-core.js';
@@ -20,6 +20,16 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PACKAGE_NAME = '@dsh-external/persona-driven';
 const problems = [];
 const notes = [];
+
+/**
+ * slot → 拥有它的客户端包。`lib/client.js` 用到哪个 slot，`dsh.client.inject` 就必须
+ * 声明对应的包——这是官方模板（templates/decoration）的写法，用来把客户端模块排在
+ * 提供该 slot 的包之后激活。新增 slot 时在这里补一行；没登记会被自检主动报出来，
+ * 以免断言在不知情的情况下退化成摆设。
+ */
+const SLOT_OWNERS = {
+	'conversation.composer.dock': '@deepseek-ai/dsh-client-ui-conversation'
+};
 
 const line = (label, value) => console.log(`${label.padEnd(18)}${value}`);
 
@@ -42,6 +52,53 @@ else {
 	}
 }
 line('补丁', patchRel ?? '(缺失)');
+
+// 1b. 打包契约（DSH 与 npm 各自会检查的硬条件，逐条固化成断言）
+const client = manifest?.dsh?.client;
+if (client !== undefined) {
+	if (client.platform !== 'web') problems.push(`dsh.client.platform 必须是 "web"（DSH 的 client-modules 只认 web），实际 ${JSON.stringify(client.platform)}`);
+	if (manifest?.exports?.['./client'] === undefined) problems.push('声明了 dsh.client 但没有 exports["./client"] —— 客户端 bundle 不会被加载');
+	else {
+		const clientRel = manifest.exports['./client'];
+		if (!existsSync(join(ROOT, clientRel))) problems.push(`exports["./client"] 指向的 ${clientRel} 不存在`);
+	}
+	if (!Array.isArray(client.inject)) problems.push('dsh.client.inject 必须是数组');
+	else {
+		// 真正的契约在这里：`lib/client.js` 注册进哪个 slot，就必须声明**拥有该 slot 的包**。
+		// 官方模板（templates/decoration）用的是 inject: ["@deepseek-ai/dsh-client-ui-conversation"]，
+		// 因为 conversation.composer.dock 是那个包提供的。留空数组不会报错、但客户端模块
+		// 不会被排在会话 UI 之后激活——这是一处真实的偏差，必须机检，否则静默退化。
+		// 只检查「是数组」等于写了条恒过的断言（[] 也是数组），这里按实际用到的 slot 反查。
+		const clientRel = manifest?.exports?.['./client'];
+		const clientFile = typeof clientRel === 'string' ? join(ROOT, clientRel) : undefined;
+		const source = clientFile !== undefined && existsSync(clientFile) ? readFileSync(clientFile, 'utf8') : '';
+		const usedSlots = [...new Set([...source.matchAll(/ctx\.slots\.(?:inject|register)\(\s*'([^']+)'/gu)].map((m) => m[1]))];
+		if (usedSlots.length === 0) problems.push('无法从 lib/client.js 里识别出任何 slot —— 这条断言会变成摆设，请更新它的正则');
+		for (const slot of usedSlots) {
+			const owner = SLOT_OWNERS[slot];
+			if (owner === undefined) {
+				problems.push(`lib/client.js 用了 slot "${slot}"，但 doctor 的 SLOT_OWNERS 没登记它的属主包 —— 先补登记，否则这条断言无效`);
+				continue;
+			}
+			if (!client.inject.includes(owner)) {
+				problems.push(`lib/client.js 注册到 slot "${slot}"，但 dsh.client.inject 没有声明它的属主包 ${owner}（官方模板要求声明）`);
+			}
+		}
+		line('客户端 slot', usedSlots.join(', ') || '(未识别)');
+	}
+}
+line('客户端', client === undefined ? '(未声明)' : `platform=${client.platform} inject=[${(client.inject ?? []).join(',')}]`);
+
+// 图标：DSH 只接受目录内的相对路径，且上限 256 KiB。
+if (typeof manifest.icon === 'string') {
+	const iconFile = join(ROOT, manifest.icon);
+	if (!existsSync(iconFile)) problems.push(`icon 指向的 ${manifest.icon} 不存在`);
+	else {
+		const bytes = statSync(iconFile).size;
+		if (bytes > 256 * 1024) problems.push(`icon ${manifest.icon} 为 ${bytes} 字节，超过 DSH 的 256 KiB 上限`);
+	}
+	line('图标', `${manifest.icon}（${statSync(iconFile).size} 字节）`);
+}
 
 // 2. 技能元数据
 const meta = readSkillMeta(join(ROOT, 'lib', 'skill-meta.json'));
