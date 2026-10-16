@@ -16,12 +16,43 @@
                           工作目录——在哪个项目里生成就识别哪个项目。
   PERSONA_DASHBOARD_OUT   输出 HTML 路径；默认写到当前目录 persona-dashboard.html。
 """
+import sys
+
+# 本模块要 import check_environment（复用「插件是否装入 profile」的判定，不另抄一份）。
+# 先关掉字节码缓存，免得在技能目录里留下 __pycache__——persona.py 自己也设了同一个开关，
+# 但那是在它被导入之后才生效的，拦不住它自己的 .pyc。__main__ 脚本本身不生成缓存。
+sys.dont_write_bytecode = True
+
 import json
 import os
-import sys
 from collections import Counter, defaultdict
 from datetime import date
 from pathlib import Path
+
+import hook_persona as hp
+
+# 有效类别的判定分组。历史埋点里同一语义可能有两个名字，判定处一律同时接受。
+SHELL_CLASSES = ("shell", "bash")
+EXPLORE_CLASSES = ("grep", "glob", "search")
+WRITE_CLASSES = ("write", "edit")
+
+
+def effective_class(e: dict) -> str:
+    """一条工具事件的**有效类别**（规范词表 + 历史兼容）。
+
+    规范来源是 `lib/persona-core.js` 与 `hook_persona.py` 的 `TOOL_ALIASES`。
+    这里额外做一层历史兼容，**否则修复前的数据会永远显示为 0**：
+
+      1. `tool == "other"` 但带 `raw_tool` 的记录，用原始工具名重新归类。这条救的是
+         最主要的一批：DSH 的小写工具名（`read`/`write`/`edit`/`grep`/`glob`）当时不在
+         词表里，读/改调用整批落成了 `other`（实测 94 行）。
+      2. 类别名兼容：JS 写入端曾用过 `bash` / `search` / `subagent`。`search` 是被合并
+         过的搜索类，**无法再区分 grep 与 glob**——只能按「搜索类」计入探查，不猜具体是哪个。
+    """
+    tool = e.get("tool") or ""
+    if tool == "other" and e.get("raw_tool"):
+        return hp.normalize_tool(str(e["raw_tool"]))
+    return tool
 
 
 def dsh_home() -> Path:
@@ -78,6 +109,7 @@ def load_events():
             except Exception:
                 continue
             r["_day"] = day
+            r["_cls"] = effective_class(r)
             events.append(r)
     return events
 
@@ -156,9 +188,8 @@ def hook_installed() -> bool:
 
     配置文件是 Claude Code 事件表形态（裸事件映射或 {"hooks": ...} 外壳，两者都认）。
 
-    数据分层依据：工具事件 / 注入 / 触发词 / 危险拦截由 hook_persona.py 写入，
-    必须装钩子才有；三层档位状态文件与档位变更记录（dials-*.jsonl）由
-    persona.py 的 set / off 写入，不依赖钩子。
+    **注意这只看兼容桥这一条通路。** DSH 上工具事件同样可以由原生插件写
+    （见 `l3_active()`），所以「没装钩子」**不等于**「没有工具数据」。
     """
     try:
         cfg = json.loads(HOOK_CFG.read_text(encoding="utf-8"))
@@ -170,6 +201,32 @@ def hook_installed() -> bool:
     if not isinstance(hooks, dict):
         hooks = cfg
     return "hook_persona" in json.dumps(hooks, ensure_ascii=False)
+
+
+def l3_active() -> bool:
+    """看板口径的「L3 数据源已生效」。
+
+    工具事件 / 注入 / 触发词 / 危险拦截有**两条**写入通路，任一条在跑就算生效：
+
+      1. **原生插件**（DSH 上的推荐路径）：`@dsh-external/persona-driven` 装进了某个
+         profile。判定直接复用 `check_environment.dsh_plugin_installed()`——同一件事
+         不写第二份实现，否则两边迟早不一致；
+      2. **兼容桥**：`$DSH_HOME/persona/hooks.json` 里引用了 `hook_persona.py`。
+
+    三层档位状态文件与档位变更记录（`dials-*.jsonl`）由 `set` / `off` 写入，两条都不依赖。
+
+    迁移遗留（修的就是它）：这个判断以前只看钩子。DSH 上插件才是推荐路径，
+    只认钩子会把**已经在写的**工具数据判成没有，看板于是强制锁进简洁版并把复选框禁用——
+    数据在，只是被自己藏起来了。
+    """
+    if hook_installed():
+        return True
+    try:
+        import check_environment as ce
+
+        return bool(ce.dsh_plugin_installed())
+    except Exception:
+        return False
 
 
 def load_layer_states():
@@ -275,12 +332,13 @@ def main():
                                       "read": 0, "shell": 0, "edit": 0, "explore": 0,
                                       "persona": e.get("persona", "")})
         s["n"] += 1
-        if e.get("write"): s["write"] += 1
+        cls = e["_cls"]
+        if cls in WRITE_CLASSES: s["write"] += 1
         if e.get("test"): s["test"] += 1
-        if e.get("read"): s["read"] += 1
-        if e.get("tool") == "shell": s["shell"] += 1
-        if e.get("tool") == "edit": s["edit"] += 1
-        if e.get("tool") in ("grep", "glob"): s["explore"] += 1
+        if cls == "read": s["read"] += 1
+        if cls in SHELL_CLASSES: s["shell"] += 1
+        if cls == "edit": s["edit"] += 1
+        if cls in EXPLORE_CLASSES: s["explore"] += 1
     sess_list = [{"id": k[:13] + "…", "last": last_day[k], **v} for k, v in sessions.items()]
 
     def days_of(sel):
@@ -292,7 +350,7 @@ def main():
         return c.most_common(8)
 
     def tool_mix(sel):
-        c = Counter(TOOL_LABEL.get(e.get("tool", "other"), e.get("tool")) for e in sel)
+        c = Counter(TOOL_LABEL.get(e["_cls"], e["_cls"]) for e in sel)
         return c.most_common(8)
 
     days_all = days_of(events)
@@ -303,7 +361,7 @@ def main():
     # 重复读（v1.5.33 起 hook 记录 ph=被操作文件路径 sha256 前 12 位，不落原文）：
     # 浪费部分 = 总读次数 - 唯一文件数。旧数据无 ph，reads=0 时前端如实显示暂无。
     def dup_of(sel):
-        phc = Counter(e["ph"] for e in sel if e.get("tool") == "read" and e.get("ph"))
+        phc = Counter(e["ph"] for e in sel if e["_cls"] == "read" and e.get("ph"))
         n_ph = sum(phc.values())
         return {"files": len(phc), "reads": n_ph,
                 "repeat": sum(c - 1 for c in phc.values() if c > 1)}
@@ -313,9 +371,9 @@ def main():
         def series(pred):
             c = Counter(e["_day"] for e in sel if pred(e))
             return [c.get(d, 0) for d, _ in days_all]
-        rd = series(lambda e: bool(e.get("read")))
-        ed = series(lambda e: e.get("tool") == "edit")
-        se = series(lambda e: e.get("tool") in ("grep", "glob"))
+        rd = series(lambda e: e["_cls"] == "read")
+        ed = series(lambda e: e["_cls"] == "edit")
+        se = series(lambda e: e["_cls"] in EXPLORE_CLASSES)
         se_n = sum(se)
         return {"read": rd, "edit": ed, "search": se,
                 "ratio": (round(sum(rd) / sum(ed), 2) if sum(ed) else None),
@@ -343,9 +401,9 @@ def main():
             "pmix": sess_pmix.get(k, Counter()).most_common(8),
             "events": s_series(lambda e: True),
             "inj": s_series(lambda e: True, src=[r for r in injections if r.get("session") == k]),
-            "read": s_series(lambda e: bool(e.get("read"))),
-            "edit": s_series(lambda e: e.get("tool") == "edit"),
-            "search": s_series(lambda e: e.get("tool") in ("grep", "glob")),
+            "read": s_series(lambda e: e["_cls"] == "read"),
+            "edit": s_series(lambda e: e["_cls"] == "edit"),
+            "search": s_series(lambda e: e["_cls"] in EXPLORE_CLASSES),
             "tools": tool_mix(sel),
             "raw": Counter(e["raw_tool"] for e in sel if e.get("raw_tool")).most_common(10),
             "dup": dup_of(sel),
@@ -426,9 +484,9 @@ def main():
             "tw": tw, "ok": ok,
             "events": p_series(lambda e: True),
             "inj": p_series(lambda e: True, src=inj_sel),
-            "read": p_series(lambda e: bool(e.get("read"))),
-            "edit": p_series(lambda e: e.get("tool") == "edit"),
-            "search": p_series(lambda e: e.get("tool") in ("grep", "glob")),
+            "read": p_series(lambda e: e["_cls"] == "read"),
+            "edit": p_series(lambda e: e["_cls"] == "edit"),
+            "search": p_series(lambda e: e["_cls"] in EXPLORE_CLASSES),
             "persona": persona_mix(sel),
             "tools": tool_mix(sel),
             "raw": Counter(e["raw_tool"] for e in sel if e.get("raw_tool")).most_common(10),
@@ -461,7 +519,7 @@ def main():
                   "hit": bool(e.get("hit")), "kinds": list(e.get("kinds") or [])}
                  for e in events if e.get("ev") == "trigger_scan" and e.get("scan")]
     guard_detail = [{"session": str(e.get("session", ""))[:24], "proj": e.get("proj", ""),
-                     "cat": e.get("category", "?"), "tool": e.get("tool") or ""}
+                     "cat": e.get("category", "?"), "tool": e["_cls"]}
                     for e in guard_rows]
     # 注入构成（事件类型 + 块长度）：SessionStart=会话开始，UserPromptSubmit=每轮对话。
     # 统计池口径，不随视角切换（分视角事件类型分布未入 payload）。
@@ -498,6 +556,7 @@ def main():
         "guards": {"total": len(guard_rows), "top": guard_top},
         "trigRows": trig_rows,
         "hook": hook_installed(),
+        "l3": l3_active(),
         "liteProj": lite_proj,
         "guardRows": guard_detail,
         "dialRows": dial_recent,
@@ -589,7 +648,7 @@ select{font-size:13px;padding:2px 4px;max-width:340px;}
   <div style="margin:4px 0;"><label><input type="radio" name="vw" value="proj"> 项目</label> <select id="projPick" disabled></select></div>
   <div style="margin:4px 0;"><label><input type="radio" name="vw" value="sess"> 会话</label> <select id="sessPick" disabled></select></div>
   <div style="margin:4px 0;"><label><input type="checkbox" id="lite"> 简洁版（仅档位数据）</label>
-    <span id="liteNote" style="color:#b4b2a9;margin-left:8px;display:none;">未检测到已安装的钩子——仅展示档位数据；工具事件、注入与行为遥测需安装钩子后才有。</span></div>
+    <span id="liteNote" style="color:#b4b2a9;margin-left:8px;display:none;">未检测到 L3 数据源——仅展示档位数据；工具事件、注入与行为遥测需要装入 <b>DSH 插件</b>（@dsh-external/persona-driven）<b>或</b>配置桥接钩子后才有。</span></div>
   <div id="viewNote" style="margin-top:6px;color:#b4b2a9;">全部会话聚合（行为遥测随视角过滤）</div>
 </div>
 
@@ -788,7 +847,7 @@ function renderProject(d) {
       ['项目', d.dir || d.id, ''],
       ['当前人格', pst ? (pn(pst) || '未设置') : '未设置', pst ? (pst.level || '') : ''],
       ['要点', pst ? (pst.gist || '—') : '—', ''],
-      ['工具事件', '需安装钩子', '简洁版不统计'],
+      ['工具事件', '需装 DSH 插件（或桥接钩子）', '简洁版不统计'],
     ]);
     if (pst && pst.dials && Object.keys(pst.dials).length) {
       drawRadar(pst, '取自该项目层状态文件实时值（1–9 刻度，项目层）');
@@ -872,7 +931,7 @@ function renderSession(i) {
       ['会话', d.id, d.own ? '有会话专属档位' : ''],
       ['当前人格', sent ? (pn(sent[1]) || '未设置') : (d.persona || '未设置'), sent ? '取自会话层档位文件' : '继承上层'],
       ['要点', sent ? (sent[1].gist || '—') : '—', ''],
-      ['工具事件', '需安装钩子', '简洁版不统计'],
+      ['工具事件', '需装 DSH 插件（或桥接钩子）', '简洁版不统计'],
     ]);
     if (sent && sent[1].dials && Object.keys(sent[1].dials).length) {
       drawRadar(sent[1], '取自该会话专属档位文件实时值（1–9 刻度，会话层）');
@@ -977,7 +1036,7 @@ function renderAll() {
   else renderGlobal();
 }
 
-function liteMode() { return !P.hook || document.getElementById('lite').checked; }
+function liteMode() { return !P.l3 || document.getElementById('lite').checked; }
 
 function applyMode() {
   const lite = liteMode();
@@ -998,7 +1057,7 @@ function fillProjPick() {
 
 (function init() {
   const liteBox = document.getElementById('lite');
-  if (!P.hook) { liteBox.checked = true; liteBox.disabled = true; }
+  if (!P.l3) { liteBox.checked = true; liteBox.disabled = true; }
   liteBox.addEventListener('change', applyMode);
 
   const projPick = document.getElementById('projPick');

@@ -47,16 +47,53 @@ TRIGGER_PATTERNS = {
     "phrase": re.compile(r"雷厉风行|果断点|果断一点|直接点|啰嗦|简洁点|慢下来"),
 }
 
+# 工具名 → 统计类别的**规范词表**。
+#
+# 必须与 lib/persona-core.js 的 TOOL_ALIASES 逐项一致（一致性由
+# tests/tool-vocab-sync.mjs 比对）。看板 persona_dashboard.py 与 persona.py report
+# 都按这套类别名读取，**单方面改名会让统计静默归零**——移植时 JS 侧曾把 shell 改成
+# bash、把 grep+glob 合并成 search，结果探查画像/终端调用/验证回收全部恒为 0。
+#
+# DSH 的工具名是**小写**（read / write / edit / grep / glob / pwsh），而上游词表停留在
+# Claude Code 的 Read / Edit / Grep / Glob / Bash，两边都已补齐小写名。
 TOOL_ALIASES = {
-    "read": {"read_file", "Read", "get_cell_ranges", "read_table"},
-    "write": {"write_to_file", "Write", "set_cell_range", "append_file"},
-    "edit": {"replace_in_file", "Edit", "multi_edit", "MultiEdit", "apply_patch", "edit_file"},
-    "shell": {"execute_command", "Bash", "run_command", "shell", "bash"},
-    "grep": {"search_content", "Grep"},
-    "glob": {"list_dir", "Glob"},
-    "task": {"task", "Task"},
+    "read": {"read_file", "Read", "get_cell_ranges", "read_table", "read"},
+    "write": {"write_to_file", "Write", "set_cell_range", "append_file", "write"},
+    "edit": {"replace_in_file", "Edit", "multi_edit", "MultiEdit", "apply_patch",
+             "edit_file", "edit"},
+    "shell": {"execute_command", "Bash", "run_command", "shell", "bash", "pwsh", "PowerShell"},
+    "grep": {"search_content", "Grep", "grep"},
+    "glob": {"list_dir", "Glob", "glob"},
+    "task": {"task", "Task", "subagent", "subagent_fork", "workflow"},
     "web": {"web_search", "web_fetch", "WebSearch", "WebFetch"},
 }
+
+# 前缀兜底：精确名匹配不到时按前缀归类，**顺序敏感，先匹配者胜**。
+# 存在的理由：DSH 的工具名由插件贡献（mcp__*、blender_rt_*、内置的 skill /
+# todo_write / job_* …），枚举永远追不上。退化为 other 时埋点会写 raw_tool，
+# 所以「不认识」是可诊断的，不是静默丢失。
+TOOL_PREFIX_RULES = (
+    ("read", "read"),
+    ("write_to", "write"),
+    ("replace_in_file", "edit"),
+    ("apply_patch", "edit"),
+    ("edit", "edit"),
+    ("grep", "grep"),
+    ("search_content", "grep"),
+    ("glob", "glob"),
+    ("list_dir", "glob"),
+    ("bash", "shell"),
+    ("pwsh", "shell"),
+    ("shell", "shell"),
+    ("powershell", "shell"),
+    ("execute_command", "shell"),
+    ("run_command", "shell"),
+    ("web_search", "web"),
+    ("web_fetch", "web"),
+    ("task", "task"),
+    ("subagent", "task"),
+    ("workflow", "task"),
+)
 
 
 def read_stdin() -> dict:
@@ -84,8 +121,16 @@ def emit(payload: dict) -> None:
 
 
 def normalize_tool(name: str) -> str:
+    """统计类别。精确名优先，未命中走前缀兜底，仍未知为 other。
+
+    与 lib/persona-core.js 的 normalizeTool 行为一致（tests/tool-vocab-sync.mjs 比对）。
+    """
     for cls, members in TOOL_ALIASES.items():
         if name in members:
+            return cls
+    lower = str(name or "").lower()
+    for prefix, cls in TOOL_PREFIX_RULES:
+        if lower.startswith(prefix):
             return cls
     return "other"
 
