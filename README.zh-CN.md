@@ -1,7 +1,7 @@
 # persona-driven · 人格驱动引擎（DeepSeek Harness 插件版）
 
 > 把「AI 太谨慎、小改动反复测试、烧 token」翻译成 **8 颗可调的旋钮**，
-> 一句「果断点」就能切档。本仓库是 [persona-driven](https://github.com/yxdotnet/ai-character-driven-dsh)
+> 一句「果断点」就能切档。本仓库是 [persona-driven](https://github.com/yxdotnet/dsh-persona-driven)
 > 技能的 **DeepSeek Harness 原生化移植**：内置技能、每轮注入、安全底线强制确认，
 > 全部走 Cordis 原生扩展点，**不需要 Git Bash，也不需要每轮起 Python 子进程**。
 

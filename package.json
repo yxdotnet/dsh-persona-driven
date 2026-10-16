@@ -82,10 +82,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/yxdotnet/ai-character-driven-dsh.git"
+    "url": "git+https://github.com/yxdotnet/dsh-persona-driven.git"
   },
   "bugs": {
-    "url": "https://github.com/yxdotnet/ai-character-driven-dsh/issues"
+    "url": "https://github.com/yxdotnet/dsh-persona-driven/issues"
   },
-  "homepage": "https://github.com/yxdotnet/ai-character-driven-dsh#readme"
+  "homepage": "https://github.com/yxdotnet/dsh-persona-driven#readme"
 }
