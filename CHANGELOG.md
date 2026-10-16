@@ -59,6 +59,17 @@ WorkBuddy 版注册了 5 个钩子事件，DSH 的 Claude Code 桥接支持其�
 
 - `tests/floor-text-sync.mjs`：三条底线的**文案在 JS 与 Python 两侧逐字节比对**。
   起因是本项目反复踩过的失效模式——同一段文案存两份副本、改一边漏改另一边。
+- `tests/plugin-wiring.mjs`：用真实 DSH 包 + 假 Cordis 上下文真的调用 `apply()`，
+  驱动 `skills.registerProvider` / `tools/pre-execute` / `agent/pre-step` / 只读路由四条接线。
 - `tests/guard-rules.mjs`、`tests/render-block.mjs`、`tests/state-layers.mjs`、
   `tests/skill-contract.mjs`、`tests/doctor.mjs`，以及 `.github/workflows/ci.yml`
   （Ubuntu + Windows × Node 20/22 × Python 3.10/3.12）。
+
+### 文档
+
+- **技能描述与 README 写明权限前提**：本技能需要**完全权限（DSH 的 Full access）**——
+  它要执行 shell 命令跑 `python scripts/persona.py …`，并写**会话工作区之外**的
+  `$DSH_HOME/persona/`。缺权限时 `set` / `off` / 看板 / `doctor` 会因写入被拒而失败，
+  档位落不下去。`SKILL.md` 新增「权限前提」一节列出各操作在受限模式下的实际表现，
+  并要求**先告知用户、不要先切档再声称已生效**。
+  （注：装了插件后每轮注入与安全底线不经过 shell，但这些 CLI 操作仍然需要权限。）

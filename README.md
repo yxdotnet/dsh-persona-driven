@@ -222,6 +222,11 @@ docs/                     install & verification, architecture & porting notes
 
 ## Requirements
 
+- **Full access (DSH's Full access mode) — required.** The skill runs shell commands
+  (`python scripts/persona.py …`) and writes **outside the session workspace** to
+  `$DSH_HOME/persona/` (dials, metrics, session profiles). Without it, `set` / `off` /
+  the dashboard / `doctor` fail on a denied write. The plugin removes the shell from
+  **per-turn injection and the safety floor**, but these CLI operations still need it.
 - **DSH** (for the plugin form; not needed for Option A).
 - **Node ≥ 20** (the plugin half; Node builtins only, zero npm dependencies).
 - **Python ≥ 3.10** (only for `scripts/persona.py`; standard library only).

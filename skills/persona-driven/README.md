@@ -261,9 +261,16 @@ references/domains-*.md     八份领域映射
 
 ## 依赖
 
-Python 3.10+（仅标准库，无第三方包）。不需要额外的 shell 运行时——DSH 不要求它，
-上游平台时代那条 Windows shell 依赖已取消。
-可选的 `@dsh-external/persona-driven` 插件包用于 L3 注入，不是运行本技能的前提。
+- **完全权限（DSH 的 Full access）—— 必须**。本技能要执行 shell 命令
+  （`python scripts/persona.py …`），并写**会话工作区之外**的 `$DSH_HOME/persona/`
+  （档位、埋点、会话档位；项目层还有 `<项目>/.dsh/persona/`）。在只读、或仅工作区可写的
+  模式下，`get` / `list` / `dials` 这类只读操作通常仍能跑，但 `set` / `off` / 看板 /
+  `doctor` 会因写入被拒而失败——**档位落不下去，每轮注入也就无从谈起**。
+  装了插件（方式 B）后**每轮注入与安全底线不经过 shell**，也不需要额外写权限，
+  但上述 CLI 操作仍然需要。**缺权限时请先告诉用户，不要先切档再声称已生效。**
+- **Python 3.10+**（仅标准库，无第三方包）。
+- 不需要 Git Bash —— 上游平台时代那条 Windows shell 依赖已取消。
+  可选的 `@dsh-external/persona-driven` 插件包用于 L3 注入，不是运行本技能的前提。
 
 ## 隐私
 

@@ -1,7 +1,7 @@
 ---
 name: persona-driven
 description: >-
-  让 AI 按你的风格和节奏干活：说「果断点」「别反复测试了」「换个风格」即可切档，说「关掉人格」即可关档；也可点名 MBTI（「用 ENTJ」）或四套预设（极速/稳妥/探索/倾听，如「极速模式」）。8 颗旋钮：推进节奏、验证强度、风险偏好、结构约束、细节粒度、探索广度、表达风格、共情温度。英文触发词：be decisive、stop re-testing everything、use ENTJ、Fast mode、change your style、turn off persona、persona dashboard。适用于写作、规划、编码与调试，减少小改动反复测试、反复确认的开销。想看使用数据就说「生成人格看板」。轻验证只免额外测试，改了什么仍必须验什么；验证下限与安全底线不随档位下降，删除、支付、密钥等不可逆操作任何档位都先确认。可选安装 DSH 插件后档位每轮注入。
+  让 AI 按你的风格和节奏干活：说「果断点」「别反复测试了」「换个风格」即可切档，说「关掉人格」即可关档；也可点名 MBTI（「用 ENTJ」）或四套预设（极速/稳妥/探索/倾听，如「极速模式」）。8 颗旋钮：推进节奏、验证强度、风险偏好、结构约束、细节粒度、探索广度、表达风格、共情温度。英文触发词：be decisive、stop re-testing everything、use ENTJ、Fast mode、change your style、turn off persona、persona dashboard。适用于写作、规划、编码与调试，减少小改动反复测试、反复确认的开销。想看使用数据就说「生成人格看板」。轻验证只免额外测试，改了什么仍必须验什么；验证下限与安全底线不随档位下降，删除、支付、密钥等不可逆操作任何档位都先确认。可选安装 DSH 插件后档位每轮注入。**使用本技能需完全权限（DSH Full access）**：要调 shell 执行 Python 脚本，并写工作区外的 `$DSH_HOME/persona`。
 whenToUse: 当用户点名 MBTI 类型或四套预设、用风格或节奏描述（果断点、别反复测试了、换个风格、极速模式）、抱怨 token 与反复确认、要查看或关闭人格、或要求生成人格看板时使用。
 disable-model-invocation: false
 user-invocable: true
@@ -47,6 +47,31 @@ python "<Base directory for this skill>/scripts/persona.py" get
 
 本技能要用到的 DSH 能力只有两样：**跑一条命令**（宿主 shell 工具）与**读一个文件**（宿主 read 工具）；
 参考文件、`assets/`、`scripts/` 都从上面的 base directory 取。
+
+### 权限前提：需要完全权限（先确认再往下走）
+
+**本技能必须在「完全权限」模式下使用**（DSH 的 Full access）。原因有两条，都不是可选的：
+
+1. **它要执行 shell 命令**。所有操作——切档、查档、关档、看板、环境自检——都通过
+   `python scripts/persona.py …` / `python scripts/persona_dashboard.py` 完成。
+2. **它要写会话工作区之外的文件**。档位、埋点、会话档位都存在 `$DSH_HOME/persona/`
+   （默认 `~/.dsh/persona/`），项目层档位存在 `<项目目录>/.dsh/persona/state.json`。
+   这两处通常都在当前会话的工作区之外。
+
+在只读、或仅工作区可写的模式下会发生什么，**要如实说明、不要假装能用**：
+
+| 操作 | 受限模式下 |
+|---|---|
+| `get` / `list` / `dials` / `domains` / `rules` | 通常仍可跑（只读） |
+| `set` / `off` | 写入被拒而失败——**档位落不下去，每轮注入也就无从谈起** |
+| `persona_dashboard.py` / `doctor` | 写输出或被探测路径被拒而失败 |
+
+所以：**如果用户没有开完全权限，先告诉他这件事，再决定要不要继续**——不要先切档、
+再在回复里说「已切到 X」，而档位根本没落盘。
+
+装了 DSH 插件（方式 B）之后有个部分缓解：**每轮注入与安全底线不经过 shell**，
+也不需要额外的写权限。但上面这些 CLI 操作仍然需要 shell 与写权限。
+换句话说，**「技能能用」和「完整功能可用」是两件事**，缺权限时只有前者。
 
 ## 何时使用
 
