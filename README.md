@@ -101,7 +101,7 @@ floor into a real approval prompt.
 
 ```powershell
 # 1) add it to a profile (<profile> is desktop / web / tui / ...)
-dsh plugin --profile <profile> add <本机路径>\ai-character-driven-dsh
+dsh plugin --profile <profile> add <本机路径>\dsh-persona-driven
 
 # 2) add the bundle to that profile's list
 #    edit $env:USERPROFILE\.dsh\profiles\<profile>\package.json
@@ -159,7 +159,7 @@ dial block twice (same content, pure token waste).
 ## Verify it actually works
 
 ```powershell
-cd <本机路径>\ai-character-driven-dsh
+cd <本机路径>\dsh-persona-driven
 npm test        # 223 assertions + install self-check
 npm run doctor  # install self-check only
 ```
