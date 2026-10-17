@@ -62,6 +62,11 @@ FAMILY_PREFIXES = (
     ("blender_rt_", "Blender"),
     ("skill", "技能"),
     ("job_", "后台作业"),
+    # 计划与待办：这两个是「结构约束」旋钮的行为代理指标——用了多少计划/待办。
+    # 工具名取自 DSH 自身（dsh-tool-todo 注册的是 todo_write；exit_plan_mode 是内置工具）。
+    ("todo_write", "待办"),
+    ("exit_plan", "计划模式"),
+    ("enter_plan", "计划模式"),
 )
 
 
