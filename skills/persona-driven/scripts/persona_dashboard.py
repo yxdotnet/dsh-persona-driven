@@ -928,7 +928,8 @@ select{font-size:13px;padding:2px 4px;max-width:340px;}
   </div>
   <div class="panel">
     <h3>具体工具 Top 10</h3>
-    <p class="note">raw_tool 字段（部分事件缺失该字段）</p>
+    <p class="note">raw_tool 字段（部分事件缺失该字段）——**只记录未被归一化识别的工具调用**，用于诊断新工具名</p>
+    <p class="note" id="rawNa" style="display:none;">✓ 当前范围内没有未识别的工具调用（全部事件已正常归类到左侧「工具类型构成」），所以这里没有条目。</p>
     <div class="ch"><canvas id="raw" role="img" aria-label="具体工具排行横向条形图">工具排行</canvas></div>
   </div>
 </div>
@@ -995,6 +996,15 @@ function renderTools(tools, raw) {
       datasets: [{ data: tools.map(x => x[1]), backgroundColor: '#0F6E56', borderRadius: 4 }] },
     options: { indexAxis: 'y', maintainAspectRatio: false, plugins: { legend: { display: false } },
       scales: { x: { grid: { color: 'rgba(0,0,0,.06)' } }, y: { grid: { display: false } } } } });
+  // raw_tool 是**诊断口径**：只有未被归一化识别的调用才记录。空集时不能画空轴——
+  // 用户会把它误读成「没有数据」，而事实恰恰相反（全部已正常归类）。改显空态文案。
+  const rawEl = document.getElementById('rawNa');
+  if (!(raw || []).length) {
+    drop('raw');
+    if (rawEl) rawEl.style.display = '';
+    return;
+  }
+  if (rawEl) rawEl.style.display = 'none';
   mk('raw', { type: 'bar', data: { labels: raw.map(x => x[0]),
       datasets: [{ data: raw.map(x => x[1]), backgroundColor: '#185FA5', borderRadius: 4 }] },
     options: { indexAxis: 'y', maintainAspectRatio: false, plugins: { legend: { display: false } },
@@ -1143,6 +1153,10 @@ function pn(st) {
 function drawRadar(st, srcNote) {
   document.getElementById('radarWrap').style.display = '';
   document.getElementById('radarNa').style.display = 'none';
+  // 来源行必须随雷达一起恢复：之前只在 drawRadar 里写文案、不恢复 display，
+  // 于是从「有数据视角」切到「无数据视角」时，hideRadar 藏了图却没藏来源行，
+  // 「该视角没有对应的档位状态文件」和「取自…实时值」会同时出现，互相打脸。
+  document.getElementById('radarSrc').style.display = '';
   document.getElementById('stPersona').textContent = pn(st) ? ('· ' + pn(st) + (st.level === 'off' ? '（注入 off）' : '（' + st.level + '）')) : '';
   document.getElementById('stGist').textContent = st.gist || '';
   document.getElementById('radarSrc').textContent = srcNote;
@@ -1259,6 +1273,8 @@ function renderTelemetry(mode, d) {
 function hideRadar(msg) {
   if (charts.radar) { charts.radar.destroy(); delete charts.radar; }
   document.getElementById('radarWrap').style.display = 'none';
+  // 同理：空态时必须把来源行一起藏掉，否则上一视角的来源文案会残留。
+  document.getElementById('radarSrc').style.display = 'none';
   document.getElementById('radarNa').style.display = '';
   document.getElementById('radarNa').textContent = msg || '该视角没有对应的档位状态文件。';
   document.getElementById('stPersona').textContent = '';
