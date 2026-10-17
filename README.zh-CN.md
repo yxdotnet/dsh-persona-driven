@@ -165,7 +165,7 @@ python scripts/persona.py install-hooks --apply --write-confirmed
 
 ```powershell
 cd <本仓库目录>
-npm test        # 224 条断言 + 安装自检（接线套件需 DSH node_modules，未配时如实报「跳过未验证」）
+npm test        # 247 条断言 + 安装自检（接线套件需 DSH node_modules，未配时如实报「跳过未验证」）
 npm run doctor  # 只看安装自检
 ```
 

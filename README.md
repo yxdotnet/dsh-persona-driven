@@ -176,7 +176,7 @@ dial block twice (same content, pure token waste).
 
 ```powershell
 cd <path-to-this-repo>
-npm test        # 224 assertions + install self-check (68 need a DSH node_modules; that suite reports "skipped, unverified" without one)
+npm test        # 247 assertions + install self-check (84 need a DSH node_modules; that suite reports "skipped, unverified" without one)
 npm run doctor  # install self-check only
 ```
 

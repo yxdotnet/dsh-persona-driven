@@ -37,6 +37,8 @@
   "files": [
     "lib",
     "skills",
+    "!skills/**/__pycache__",
+    "!skills/**/*.pyc",
     "locale",
     "cordis.patch.yml",
     "icon.svg",

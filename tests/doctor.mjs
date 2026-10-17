@@ -100,6 +100,21 @@ if (typeof manifest.icon === 'string') {
 	line('图标', `${manifest.icon}（${statSync(iconFile).size} 字节）`);
 }
 
+// 1c. 打包面必须排除 Python 字节码缓存。
+//
+// **这不是洁癖。** npm 的 `files` 字段会压过 `.gitignore`，所以 `__pycache__/` 写在
+// .gitignore 里也拦不住它——实测过一次：两个 `.pyc`（19.2 + 85.5 = 104.7 KB）被打进了包，
+// 体积从 229 KB 涨到 280 KB，翻文件清单才发现。
+// 这里断言的是「排除声明存在」：本地有没有 `__pycache__` 取决于谁跑过什么 python 命令
+// （本项目就踩过——一次没带 `-B` 的临时验证命令造出了这两个文件）。
+const packFiles = Array.isArray(manifest.files) ? manifest.files : [];
+if (!packFiles.some((entry) => String(entry).includes('__pycache__'))) {
+	problems.push('package.json 的 files 未声明排除 __pycache__ —— npm 的 files 会压过 .gitignore，.pyc 会被打进包');
+}
+if (!packFiles.some((entry) => String(entry).includes('.pyc'))) {
+	problems.push('package.json 的 files 未声明排除 *.pyc');
+}
+
 // 2. 技能元数据
 const meta = readSkillMeta(join(ROOT, 'lib', 'skill-meta.json'));
 if (meta === null) problems.push('lib/skill-meta.json 缺失或损坏 —— 内置技能不会被注册');
