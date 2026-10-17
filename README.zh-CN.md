@@ -59,7 +59,7 @@
 
 ## 安装
 
-### 最快：一条命令从 GitHub 装（L3 级，推荐）
+### 安装：一条命令（装插件即 L3）
 
 ```bash
 dsh plugin --profile <profile> add github:yxdotnet/dsh-persona-driven
@@ -76,10 +76,10 @@ dsh plugin --profile <profile> add github:yxdotnet/dsh-persona-driven
 > 本身（Cordis 原生扩展点），装完插件即具备：没有 hooks 配置文件，也没有每轮子进程，
 > `~/.dsh/persona/` 下只会出现 `metrics/` 与 `sessions/`。
 >
-> 提供 L3 的是**插件（方式 B）**，不是**技能（方式 A）** —— 只复制技能目录不会有每轮注入与守卫。
-> 下面的「方式 C」只是兼容老配置的可选桥，**不推荐**，新装请直接忽略。
+> **L3 来自插件，不是技能目录** —— 只复制技能目录不会有每轮注入与守卫。
+> 下面的「兼容桥」只是兼容老配置的可选路径，**不推荐**，新装请直接忽略。
 
-### 方式 A：只要技能（最省事，L1/L2 级）
+### 降级：不装插件时（L1/L2，**不是另一种安装方式**）
 
 把 `skills/persona-driven/` 整个目录复制到 DSH 的技能根目录即可，DSH 会自动发现它：
 
@@ -109,7 +109,7 @@ DSH 的技能根目录按优先级（数字小者胜）：
 **这一级能影响、不能约束**：语气、详略、推进节奏按档位执行，但测试深度没有硬约束，
 安全底线也不会强制转人工确认。
 
-### 方式 B：装入插件（L3 级，推荐）
+### 从本地目录装（开发态，同样是 L3）
 
 插件会做三件事：注册技能、每轮注入档位块、把安全底线变成真实的人工确认。
 
@@ -141,7 +141,7 @@ dsh plugin --profile <profile> add <本仓库目录>
 
 > 插件是 DSH **启动时**加载的模块，改完必须重启 DSH 才生效。
 
-### 方式 C：钩子桥接（仅为兼容老配置，**不推荐**）
+### 兼容桥（仅为兼容老配置，**不推荐**）
 
 插件之外还有一条兼容路径：生成一份 Claude Code 格式的 `hooks.json`，
 交给 DSH 自带的 `@deepseek-ai/dsh-hooks-claude-code` 桥接执行。
@@ -163,7 +163,7 @@ python scripts/persona.py install-hooks --apply --write-confirmed
         configPath: <上面打印出的 hooks.json 绝对路径>
 ```
 
-**A / B / C 三选一即可，不要同时开 A+B+C 的注入**：方式 B 与方式 C 都会每轮注入，
+**插件与兼容桥二选一即可，不要同时开**：两者都会每轮注入，
 同时开会把档位块注入两次（内容相同，纯粹浪费 token）。
 
 ---
@@ -229,8 +229,8 @@ python scripts/persona.py get      # 当前生效的档位与它所在的层
 `SessionStart`、`UserPromptSubmit`、`PreToolUse`、`PostToolUse`。
 **`PreCompact` 在 DSH 侧不受支持**，所以已从钩子生成器里删除。
 
-- 走**方式 C（钩子桥接）**：上下文压缩之后，档位块不再被重新注入。
-- 走**方式 B（原生插件）**：不受影响——`agent/pre-step` 每一回合都在。
+- 走**兼容桥**：上下文压缩之后，档位块不再被重新注入。
+- 走**原生插件**：不受影响——`agent/pre-step` 每一回合都在。
 
 ---
 
@@ -256,7 +256,7 @@ docs/                     安装与验收、架构与移植说明
 SKILL.md                     引擎：触发、旋钮、优先级契约、按需加载
 assets/personas.json         唯一真相源：16 型 + 4 预设的档位数值
 scripts/persona.py           状态机与 CLI（唯一读写入口）
-scripts/hook_persona.py      钩子桥接的入口（方式 C 用）
+scripts/hook_persona.py      钩子桥接的入口（兼容桥用）
 scripts/check_environment.py 只读环境与安装自检
 scripts/experiment.py        对照实验记录与判定器
 scripts/persona_dashboard.py 本机数据看板（生成单文件 HTML）
@@ -271,7 +271,7 @@ references/                  16 型画像、安全底线、安装、实验、已
   并写**会话工作区之外**的 `$DSH_HOME/persona/`（档位、埋点、会话档位）。
   缺权限时 `set` / `off` / 看板 / `doctor` 会因写入被拒而失败。装了插件后
   **每轮注入与安全底线不经过 shell**，但这些 CLI 操作仍然需要权限。
-- **DSH**（插件形态需要；只用方式 A 的话不需要）。
+- **DSH**（插件形态需要；只复制技能目录则不需要）。
 - **Node ≥ 20**（插件半边；只用 Node 内置模块，没有任何 npm 依赖）。
 - **Python ≥ 3.10**（只有用 `scripts/persona.py` 这些 CLI 时才需要；仅标准库，不装第三方包）。
 - ~~Git Bash~~ —— **不再需要**。

@@ -27,9 +27,9 @@
 
 ## 安装
 
-本技能有三种交付层级，可以只装第一层，也可以叠加上去。
+**装这个插件就是 L3** —— 每轮注入、安全底线拦截、埋点全部到位，不需要另外配任何东西。`### 降级` 那节描述的是**不装插件时**会发生什么（L1/L2，能影响不能约束），不是一种可选装法。
 
-### A. 只装技能（始终可用，L1/L2 —— 能影响、不能约束）
+### 降级：不装插件（L1/L2 —— 能影响、不能约束）
 
 > 本 README 里的所有命令都在**技能目录**下执行；在 DSH 会话里，技能目录由 `<skill_resources>`
 > 的「Base directory for this skill: <绝对路径>」给出。
@@ -51,7 +51,7 @@
 cp -r persona-driven "$DSH_HOME/skills/"
 ```
 
-### B. 安装 DSH 插件包（L3 —— 每轮注入 + 安全底线强制确认）
+### 装插件（L3 —— 每轮注入 + 安全底线强制确认）
 
 `@dsh-external/persona-driven` bundle 提供：技能注册（`ctx.skills.registerProvider()`）、
 原生 Cordis Host 半（`agent/pre-step` 每轮注入 + `agent/created` 时经 `agent.inject()` 做
@@ -65,7 +65,7 @@ SessionStart 注入）、以及原生安全底线（`tools/pre-execute` 返回 `
 
 **这条路不写任何 `settings.json`，也不需要额外的 shell 运行时。**
 
-### C. 可选兼容桥（配置文件式钩子）
+### 兼容桥（配置文件式钩子，仅为老配置保留，不推荐）
 
 ```bash
 cd "$DSH_HOME/skills/persona-driven"
@@ -266,7 +266,7 @@ references/domains-*.md     八份领域映射
   （档位、埋点、会话档位；项目层还有 `<项目>/.dsh/persona/`）。在只读、或仅工作区可写的
   模式下，`get` / `list` / `dials` 这类只读操作通常仍能跑，但 `set` / `off` / 看板 /
   `doctor` 会因写入被拒而失败——**档位落不下去，每轮注入也就无从谈起**。
-  装了插件（方式 B）后**每轮注入与安全底线不经过 shell**，也不需要额外写权限，
+  装了插件后**每轮注入与安全底线不经过 shell**，也不需要额外写权限，
   但上述 CLI 操作仍然需要。**缺权限时请先告诉用户，不要先切档再声称已生效。**
 - **Python 3.10+**（仅标准库，无第三方包）。
 - 不需要 Git Bash —— 上游平台时代那条 Windows shell 依赖已取消。

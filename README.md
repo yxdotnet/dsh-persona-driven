@@ -67,7 +67,7 @@ never reasons to verify less.
 
 ## Install
 
-### Fastest — one command from GitHub (L3, recommended)
+### Install — one command (installing the plugin *is* L3)
 
 ```bash
 dsh plugin --profile <profile> add github:yxdotnet/dsh-persona-driven
@@ -86,12 +86,12 @@ pasted into the **Plugins** page in DSH's Web sidebar.
 > points). Once the plugin is installed there is **no hooks config file and no per-turn
 > subprocess**; `~/.dsh/persona/` only ever contains `metrics/` and `sessions/`.
 >
-> It is the **plugin (Option B)**, not the **skill (Option A)**, that provides L3 — copying
+> It is the **plugin**, not the **skill directory**, that provides L3 — copying
 > the skill directory alone gives you no injection and no guard.
-> Option C below exists only to keep older configs working — **not recommended**, ignore it
+> The hook bridge below exists only to keep older configs working — **not recommended**, ignore it
 > for a fresh install.
 
-### Option A — skill only (simplest, L1/L2)
+### Degraded — without the plugin (L1/L2, **not an install option**)
 
 Copy `skills/persona-driven/` into a DSH skill root; DSH discovers it automatically.
 
@@ -121,7 +121,7 @@ DSH skill roots, lowest rank wins:
 **This level can influence, not constrain**: tone, detail and pace follow the profile,
 but test depth is not enforced and the safety floor does not force a human confirmation.
 
-### Option B — install the plugin (L3, recommended)
+### Install from a local directory (dev mode) — also L3
 
 The plugin registers the skill, injects the dial block every turn, and turns the safety
 floor into a real approval prompt.
@@ -155,7 +155,7 @@ with this directory's absolute path as `target`).
 
 > Plugins are modules DSH loads **at startup**; restart DSH for changes to take effect.
 
-### Option C — the hook bridge (**not recommended**; kept for older configs only)
+### Hook bridge (**not recommended**; kept for older configs only)
 
 A compatibility path: generate a Claude Code-format `hooks.json` and let DSH's bundled
 `@deepseek-ai/dsh-hooks-claude-code` bridge run it.
@@ -247,8 +247,8 @@ The upstream version registered five hook events. DSH's Claude Code bridge suppo
 `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`. **`PreCompact` is not
 supported on DSH**, so it has been removed from the hook generator.
 
-- On **Option C (hook bridge)**: after a context compaction the dial block is not re-injected.
-- On **Option B (native plugin)**: unaffected — `agent/pre-step` runs every turn.
+- With the **hook bridge**: after a context compaction the dial block is not re-injected.
+- With the **native plugin**: unaffected — `agent/pre-step` runs every turn.
 
 ---
 
@@ -277,7 +277,7 @@ docs/                     install & verification, architecture & porting notes
   `$DSH_HOME/persona/` (dials, metrics, session profiles). Without it, `set` / `off` /
   the dashboard / `doctor` fail on a denied write. The plugin removes the shell from
   **per-turn injection and the safety floor**, but these CLI operations still need it.
-- **DSH** (for the plugin form; not needed for Option A).
+- **DSH** (needed for the plugin form; not needed when only copying the skill directory).
 - **Node ≥ 20** (the plugin half; Node builtins only, zero npm dependencies).
 - **Python ≥ 3.10** (only for `scripts/persona.py`; standard library only).
 - ~~Git Bash~~ — **no longer required**.
