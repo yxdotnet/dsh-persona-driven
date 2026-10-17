@@ -22,7 +22,8 @@ const SUITES = [
 	'guard-rules.mjs',
 	'state-layers.mjs',
 	'floor-text-sync.mjs',
-	'plugin-wiring.mjs'
+	'plugin-wiring.mjs',
+	'dashboard-smoke.mjs'
 ];
 
 const failures = [];
