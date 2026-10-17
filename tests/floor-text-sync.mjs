@@ -30,7 +30,8 @@ import {
 	TOOL_PREFIX_RULES,
 	VERIFY_FLOOR_LINE,
 	findProjectRoot,
-	normalizeTool
+	normalizeTool,
+	sha12
 } from '../lib/persona-core.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -140,7 +141,11 @@ const ROOT_PROBE = [
 	'import json, sys',
 	'sys.path.insert(0, ".")',
 	'import persona as p',
-	'print(json.dumps([str(p.find_project_root(x)) for x in json.loads(sys.argv[1])], separators=(",", ":")))'
+	'cases = json.loads(sys.argv[1])',
+	'print(json.dumps({',
+	'  "roots": [str(p.find_project_root(x)) for x in cases],',
+	'  "proj": p.proj_id(cases[1]),',
+	'}, separators=(",", ":")))'
 ].join('\n');
 
 // 三组：仓库内的深层子目录（有 .git 祖先）/ 仓库根本身 / 不存在的路径（无 .git，应回起点）
@@ -166,12 +171,16 @@ if (rootRaw === null) {
 	eq(existsSync(join(SCRIPTS, 'persona.py')), true, 'persona.py 存在（缺解释器，仅核对文件在位）');
 } else {
 	const normalize = (value) => String(value).replace(/\\/gu, '/');
-	const pyRoots = JSON.parse(rootRaw).map(normalize);
+	const parsed = JSON.parse(rootRaw);
+	const pyRoots = parsed.roots.map(normalize);
 	const jsRoots = ROOT_CASES.map((value) => normalize(findProjectRoot(value)));
 	eq(JSON.stringify(jsRoots), JSON.stringify(pyRoots),
 		'项目根解析两侧一致（含「找不到 .git 时回起点」的回退分支）');
 	eq(normalize(findProjectRoot(join(SCRIPTS))), normalize(ROOT),
 		'仓库内子目录解析到仓库根（这就是那条静默失效的现场）');
+	// proj 短 ID：看板靠它把「档位流水」与「工具事件」归到同一个项目下。
+	// 算法或输入差一点，两边就永远对不上，而且是静默的——所以它也是契约。
+	eq(sha12(ROOT), parsed.proj, 'proj 短 ID 两侧同算法同输入');
 }
 
 finish('floor-text-sync');
