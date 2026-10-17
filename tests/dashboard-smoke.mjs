@@ -14,7 +14,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -87,6 +87,92 @@ if (pythonOk) {
 		ok(html.includes('id="rawNa"'), 'raw_tool 空态元素在位');
 		ok(html.includes('id="radarNa"'), '雷达空态元素在位');
 		ok(html.includes('设档位前/未归属'), '人格分布的可解释标签在位');
+	} finally {
+		rmSync(sandbox, { recursive: true, force: true });
+	}
+}
+
+group('看板 · L3 数据源判定（l3_active）');
+
+// 为什么这条重要：`liteMode()` 靠 `l3_active()` 决定要不要把看板锁进「简洁版」。
+// 这个判断曾经只看「装没装钩子」（`$DSH_HOME/persona/hooks.json` 里有没有 hook_persona），
+// 而 DSH 上 L3 的载体是**原生插件**——没装钩子时它判 false，于是把**已经在写的**工具数据
+// 藏起来、强制锁进简洁版。数据在，只是被自己藏了。
+//
+// 现在认两条通路：原生插件（复用 check_environment.dsh_plugin_installed）或桥接钩子。
+// 每个场景必须是**独立进程**：persona_dashboard 与它 import 的 check_environment 都在
+// import 时算好 HOME_ROOT，同进程里换 DSH_HOME 不会重新解析。
+function probeL3(home) {
+	const code = [
+		'import sys',
+		'sys.path.insert(0, ".")',
+		'import persona_dashboard as d',
+		'print("RESULT=" + ("1" if d.l3_active() else "0"))'
+	].join('\n');
+	const output = execFileSync(PYTHON, ['-B', '-c', code], {
+		cwd: SCRIPTS,
+		encoding: 'utf8',
+		stdio: ['ignore', 'pipe', 'pipe'],
+		env: { ...process.env, DSH_HOME: home }
+	});
+	const match = /RESULT=([01])/u.exec(output);
+	if (match === null) throw new Error(`L3 探针没有回 RESULT，实际输出：${output}`);
+	return match[1] === '1';
+}
+
+if (pythonOk) {
+	const sandbox = mkdtempSync(join(tmpdir(), 'persona-l3-'));
+	try {
+		// 场景 1：空环境 —— 既没插件也没钩子，应判 false（看板据此进简洁版）
+		const bare = join(sandbox, 'bare');
+		mkdirSync(join(bare, 'persona'), { recursive: true });
+		eq(probeL3(bare), false, '场景1 空环境（无插件、无钩子）→ false');
+
+		// 场景 2：**只有插件**（DSH 的推荐路径）—— 这是修复的核心，旧实现会判 false
+		const plug = join(sandbox, 'plugin');
+		const profile = join(plug, 'profiles', 'desktop');
+		mkdirSync(profile, { recursive: true });
+		writeFileSync(
+			join(profile, 'package.json'),
+			JSON.stringify({
+				name: 'dsh-profile-desktop',
+				dsh: { profile: { bundles: ['@deepseek-ai/dsh-base', '@dsh-external/persona-driven'] } }
+			}),
+			'utf8'
+		);
+		eq(probeL3(plug), true, '场景2 只有原生插件 → true（旧实现这里会红）');
+
+		// 场景 2b：插件只出现在 cordis.patch.yml 文本里（没写进 bundles）
+		const patchOnly = join(sandbox, 'patchonly');
+		mkdirSync(join(patchOnly, 'persona'), { recursive: true });
+		writeFileSync(
+			join(patchOnly, 'cordis.patch.yml'),
+			"- insert:\n    - id: persona-driven\n      name: '@dsh-external/persona-driven'\n",
+			'utf8'
+		);
+		eq(probeL3(patchOnly), true, '场景2b 只在 cordis.patch.yml 里出现 → true');
+
+		// 场景 3：**只有钩子桥**（老路径）—— 也必须判 true，不能因为改了判定就丢掉老路径
+		const hook = join(sandbox, 'hook');
+		mkdirSync(join(hook, 'persona'), { recursive: true });
+		writeFileSync(
+			join(hook, 'persona', 'hooks.json'),
+			JSON.stringify({
+				PreToolUse: [{ matcher: '*', hooks: [{ type: 'command', command: 'python hook_persona.py --event pretool' }] }]
+			}),
+			'utf8'
+		);
+		eq(probeL3(hook), true, '场景3 只有桥接钩子 → true（老路径不能被改坏）');
+
+		// 场景 4：hooks.json 存在但属于别的技能 —— 不应误判为已装
+		const foreign = join(sandbox, 'foreign');
+		mkdirSync(join(foreign, 'persona'), { recursive: true });
+		writeFileSync(
+			join(foreign, 'persona', 'hooks.json'),
+			JSON.stringify({ PreToolUse: [{ matcher: '*', hooks: [{ type: 'command', command: 'node other-hook.js' }] }] }),
+			'utf8'
+		);
+		eq(probeL3(foreign), false, '场景4 hooks.json 属于别的技能 → false（不误判）');
 	} finally {
 		rmSync(sandbox, { recursive: true, force: true });
 	}
