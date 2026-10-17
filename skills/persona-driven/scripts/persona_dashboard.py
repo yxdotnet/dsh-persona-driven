@@ -376,15 +376,30 @@ def main():
     reject_rate = round(100 * rejected / decided) if decided else None
     approval_by_tool = Counter(str(m.get("tool") or "(工具名未知)") for m in approval_rows)
 
-    # 每轮调用数：判定线关心的相对量。只在**两个量都拿得到**的会话上算——
-    # 缺 turn 埋点的历史会话如实排除，不拿会话事件数冒充轮数。
+    # 每轮调用数：判定线关心的相对量。
+    #
+    # **必须按「首条 turn 之后」截断**：turn 埋点是 1.7.0 才上线的，老会话的历史调用
+    # 一条 turn 都没有。若拿整段历史调用除以刚观察到的轮数，会算出荒谬值——
+    # 实测过一次：332 次/轮（同一会话历史 332 次调用 ÷ 重启后 1 轮）。
+    #
+    # 另要求**至少 2 轮**：1 轮算不出「每轮」，把噪声显示成指标就是编造结论。
     turn_rows = [m for m in marks if m.get("ev") == "turn"]
     turns_by_session = Counter(str(m.get("session") or "") for m in turn_rows)
-    calls_by_session = Counter(str(e.get("session") or "") for e in events)
+    first_turn_ts = {}
+    for m in sorted(turn_rows, key=lambda r: str(r.get("ts") or "")):
+        sid = str(m.get("session") or "")
+        ts = str(m.get("ts") or "")
+        if sid and ts and sid not in first_turn_ts:
+            first_turn_ts[sid] = ts
+    calls_by_session = Counter(
+        str(e.get("session") or "") for e in events
+        # turn 与工具记录都由插件用同一格式（ISO + Z）写出，逐字符比较成立。
+        if str(e.get("ts") or "") >= first_turn_ts.get(str(e.get("session") or ""), "9999")
+    )
     per_turn = [
         {"session": sid[:13] + "…", "turns": n, "calls": calls_by_session[sid],
          "callsPerTurn": round(calls_by_session[sid] / n, 2)}
-        for sid, n in turns_by_session.items() if n > 0 and calls_by_session.get(sid)
+        for sid, n in turns_by_session.items() if n >= 2 and calls_by_session.get(sid)
     ]
     per_turn.sort(key=lambda r: r["callsPerTurn"], reverse=True)
 
@@ -728,7 +743,9 @@ def main():
                           if approval_rows else "暂无（需原生插件写 session/event）"))
     print("每轮调用数：" + (f"{len(per_turn)} 个会话可算 | 最高 {per_turn[0]['session']} "
                             f"{per_turn[0]['callsPerTurn']}"
-                            if per_turn else "暂无（缺 turn 埋点或 turn 记录为 0）"))
+                            if per_turn else
+                            f"暂无（turn 记录 {len(turn_rows)} 条；同一会话至少 2 轮才算，"
+                            f"且只数首条 turn 之后的调用）"))
     print(f"写出 {OUT}")
 
 
@@ -1186,7 +1203,8 @@ function renderDsh() {
     ? '每轮调用数：' + t.slice(0, 5)
       .map((r) => r.session + ' ' + r.callsPerTurn + '（' + r.calls + ' 次 / ' + r.turns + ' 轮）')
       .join(' · ')
-    : '每轮调用数：暂无（缺 turn 埋点）—— 这是「档位是否让人一次到位」的相对量，判定线关心的正是它';
+    : '每轮调用数：暂无（turn 记录 ' + (P.turnsTotal || 0) + ' 条；同一会话至少 2 轮才算，'
+      + '且只数首条 turn 之后的调用）—— 这是「档位是否让人一次到位」的相对量';
 }
 
 function renderAll() {
