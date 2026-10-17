@@ -362,6 +362,31 @@ def scope_or_die(value: str) -> str:
     return s
 
 
+def find_project_root(start) -> Path:
+    """项目根：最近的含 `.git` 的祖先，找不到就是起点本身。
+
+    **必须与 `lib/persona-core.js` 的 `findProjectRoot` 逐条同义。** 用 `abspath` 而不是
+    `resolve()`：前者只做规范化、不解析符号链接，与 JS 的 `path.resolve` 语义一致。
+
+    修的是一个真实错位：这里原来直接用裸 `Path.cwd()`，而 JS 用 git 根。在子目录里执行
+    `set --scope 项目`，Python 写进「子目录/.dsh/persona/state.json」，JS 却从
+    「仓库根/.dsh/persona/state.json」读——**档位设了永远不生效，而且不报错**。
+
+    注：上游 v1.5.44/45 是更彻底的重设计（项目身份=规范化路径 sha256、集中存到
+    `persona/projects/`、加 `--cwd` 与「在技能目录里落笔」守卫）。本仓库暂不跟随那套
+    存储位置变更，先保证两端解析到同一个目录；升级路径见 `docs/架构与移植说明.md`。
+    """
+    origin = Path(os.path.abspath(str(start)))
+    current = origin
+    while True:
+        if (current / ".git").exists():
+            return current
+        parent = current.parent
+        if parent == current:
+            return origin
+        current = parent
+
+
 def resolve_layer(scope: str = "auto", cwd: Path | None = None,
                   session: str | None = None) -> tuple[str, Path]:
     """决定哪一层的档位生效，返回 (层名, 路径)。
@@ -378,7 +403,9 @@ def resolve_layer(scope: str = "auto", cwd: Path | None = None,
     绝不静默落全局层。
     """
     sid = sanitize_session(session) if session else current_session_id()
-    project_path = (cwd or Path.cwd()) / ".dsh" / "persona" / "state.json"
+    # 项目根与 JS 侧同义（git 根）。用裸 cwd 会让「在子目录里设的项目档」写进注入读不到的
+    # 位置——见 find_project_root 的注释。
+    project_path = find_project_root(cwd or Path.cwd()) / ".dsh" / "persona" / "state.json"
     if scope == "session":
         return ("session", session_state_path(sid)) if sid else ("global", HOME_STATE)
     if scope == "project":
