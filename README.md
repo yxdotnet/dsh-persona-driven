@@ -81,6 +81,16 @@ pasted into the **Plugins** page in DSH's Web sidebar.
 > `- id: persona-driven` with zero warnings. Once published to npm, the equivalent is
 > `add @dsh-external/persona-driven`.
 
+> **No hooks to install.** On DSH the three capabilities — per-turn injection, safety-floor
+> interception and telemetry — are carried by the plugin itself (native Cordis extension
+> points). Once the plugin is installed there is **no hooks config file and no per-turn
+> subprocess**; `~/.dsh/persona/` only ever contains `metrics/` and `sessions/`.
+>
+> It is the **plugin (Option B)**, not the **skill (Option A)**, that provides L3 — copying
+> the skill directory alone gives you no injection and no guard.
+> Option C below exists only to keep older configs working — **not recommended**, ignore it
+> for a fresh install.
+
 ### Option A — skill only (simplest, L1/L2)
 
 Copy `skills/persona-driven/` into a DSH skill root; DSH discovers it automatically.
@@ -145,7 +155,7 @@ with this directory's absolute path as `target`).
 
 > Plugins are modules DSH loads **at startup**; restart DSH for changes to take effect.
 
-### Option C — the hook bridge (optional, for config-file people)
+### Option C — the hook bridge (**not recommended**; kept for older configs only)
 
 A compatibility path: generate a Claude Code-format `hooks.json` and let DSH's bundled
 `@deepseek-ai/dsh-hooks-claude-code` bridge run it.

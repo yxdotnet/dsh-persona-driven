@@ -72,6 +72,13 @@ dsh plugin --profile <profile> add github:yxdotnet/dsh-persona-driven
 > 实测：pnpm 9.1 秒完成；`dsh <profile> --dump-config` 里出现 `- id: persona-driven`
 > 且零警告。发布到 npm 之后，等价写法是 `add @dsh-external/persona-driven`。
 
+> **不需要装任何钩子。** DSH 上「每轮注入 / 安全底线拦截 / 埋点」这三个能力的载体就是插件
+> 本身（Cordis 原生扩展点），装完插件即具备：没有 hooks 配置文件，也没有每轮子进程，
+> `~/.dsh/persona/` 下只会出现 `metrics/` 与 `sessions/`。
+>
+> 提供 L3 的是**插件（方式 B）**，不是**技能（方式 A）** —— 只复制技能目录不会有每轮注入与守卫。
+> 下面的「方式 C」只是兼容老配置的可选桥，**不推荐**，新装请直接忽略。
+
 ### 方式 A：只要技能（最省事，L1/L2 级）
 
 把 `skills/persona-driven/` 整个目录复制到 DSH 的技能根目录即可，DSH 会自动发现它：
@@ -134,7 +141,7 @@ dsh plugin --profile <profile> add <本仓库目录>
 
 > 插件是 DSH **启动时**加载的模块，改完必须重启 DSH 才生效。
 
-### 方式 C：钩子桥接（可选，给喜欢配置文件的人）
+### 方式 C：钩子桥接（仅为兼容老配置，**不推荐**）
 
 插件之外还有一条兼容路径：生成一份 Claude Code 格式的 `hooks.json`，
 交给 DSH 自带的 `@deepseek-ai/dsh-hooks-claude-code` 桥接执行。

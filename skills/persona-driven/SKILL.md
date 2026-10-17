@@ -295,7 +295,13 @@ v3 对照实验（300 轮）的归因显示：硬约束档省下的调用里，�
 `dsh.profile.bundles` 后执行安装，然后**重启 DSH**。**这条路不会写任何 `settings.json`，
 也不再需要额外的 shell 运行时**——上游平台时代那条 Windows shell 依赖已经取消。
 
-**C. 可选兼容桥（给偏爱配置文件式钩子的用户）。** 运行
+> **DSH 上不需要装任何钩子。** 「每轮注入 / 安全底线拦截 / 埋点」这三个能力的载体就是插件
+> 本身（Cordis 原生扩展点），装完插件即具备：没有 hooks 配置文件，也没有每轮子进程，
+> `$DSH_HOME/persona/` 下只会出现 `metrics/` 与 `sessions/`。
+> 下文 C 只是兼容老配置的可选路径，**不推荐**，新装请直接忽略。
+> 另注意：提供 L3 的是**插件（B）**，不是**技能（A）** —— 只复制技能目录不会有每轮注入与守卫。
+
+**C. 可选兼容桥（仅为兼容老配置，不推荐）。** 运行
 `python scripts/persona.py install-hooks --apply --write-confirmed`，它会在
 `$DSH_HOME/persona/hooks.json` 写一份 Claude Code 格式的 hooks 配置；随后由用户自己加一行
 Cordis 配置，mount `@deepseek-ai/dsh-hooks-claude-code`，并把 `configPath` 指向该文件。
