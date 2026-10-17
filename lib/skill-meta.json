@@ -1,5 +1,5 @@
 {
   "name": "persona-driven",
-  "description": "让 AI 按你的风格和节奏干活：说「果断点」「别反复测试了」「换个风格」即可切档，说「关掉人格」即可关档；也可点名 MBTI（「用 ENTJ」）或四套预设（极速/稳妥/探索/倾听，如「极速模式」）。8 颗旋钮：推进节奏、验证强度、风险偏好、结构约束、细节粒度、探索广度、表达风格、共情温度。英文触发词：be decisive、stop re-testing everything、use ENTJ、Fast mode、change your style、turn off persona、persona dashboard。适用于写作、规划、编码与调试，减少小改动反复测试、反复确认的开销。想看使用数据就说「生成人格看板」。轻验证只免额外测试，改了什么仍必须验什么；验证下限与安全底线不随档位下降，删除、支付、密钥等不可逆操作任何档位都先确认。可选安装 DSH 插件后档位每轮注入。**使用本技能需完全权限（DSH Full access）**：要调 shell 执行 Python 脚本，并写工作区外的 `$DSH_HOME/persona`。",
+  "description": "让 AI 按你的风格和节奏干活：说「果断点」「别反复测试了」「换个风格」即可切档，说「关掉人格」即可关档；也可点名 MBTI（「用 ENTJ」）或四套预设（极速/稳妥/探索/倾听，如「极速模式」）。8 颗旋钮：推进节奏、验证强度、风险偏好、结构约束、细节粒度、探索广度、表达风格、共情温度。英文触发词：be decisive、stop re-testing everything、use ENTJ、Fast mode、change your style、turn off persona、persona dashboard。适用于写作、规划、编码与调试，减少小改动反复测试、反复确认的开销。想看使用数据就说「生成人格看板」。轻验证只免额外测试，改了什么仍必须验什么；验证下限与安全底线不随档位下降，删除、支付、密钥等不可逆操作任何档位都先确认。本包即 DSH 插件，安装后档位每轮注入（无需钩子）。**使用本技能需完全权限（DSH Full access）**：要调 shell 执行 Python 脚本，并写工作区外的 `$DSH_HOME/persona`。",
   "whenToUse": "当用户点名 MBTI 类型或四套预设、用风格或节奏描述（果断点、别反复测试了、换个风格、极速模式）、抱怨 token 与反复确认、要查看或关闭人格、或要求生成人格看板时使用。"
 }
