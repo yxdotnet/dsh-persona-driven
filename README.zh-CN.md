@@ -189,18 +189,18 @@ python scripts/persona.py get      # 当前生效的档位与它所在的层
 
 ---
 
-## 这个插件做了什么（与 WorkBuddy 版的差异）
+## 这个插件做了什么
 
-| | WorkBuddy 版 | 本插件 |
-|---|---|---|
-| 注入通道 | 钩子命令（`UserPromptSubmit`） | `agent/pre-step` 瀑布（原生，无需子进程） |
-| 依赖 | **Git Bash + Python** | **无**（Python 只在用 CLI 时用） |
-| 安全底线 | `PreToolUse` 钩子返回 `ask` | `tools/pre-execute` 返回 `{kind:'ask'}`，走 DSH 的 Approval 服务 |
-| 状态目录 | `~/.workbuddy/persona` | `$DSH_HOME/persona`（缺省 `~/.dsh/persona`） |
-| 项目层 | `<cwd>/.workbuddy/persona` | `<cwd>/.dsh/persona` |
-| 会话标识 | `CODEBUDDY_SESSION_ID` | `DSH_SESSION_ID`（保留旧名回退） |
-| 网页面板 | 无 | 只读状态药丸；**默认关闭**（见下，取不到数据） |
-| 压缩后重注入 | `PreCompact` | **不支持**（见下） |
+| 项目 | 做法 |
+|---|---|
+| 注入通道 | `agent/pre-step` 瀑布 —— 原生，无需子进程 |
+| 依赖 | **无**（Python 只在用 CLI 切档、看板时需要） |
+| 安全底线 | `tools/pre-execute` 返回 `{kind:'ask'}`，走 DSH 的 Approval 服务 |
+| 状态目录 | `$DSH_HOME/persona`（缺省 `~/.dsh/persona`） |
+| 项目层 | `<cwd>/.dsh/persona` —— 解析到 git 根，与插件读的同一处 |
+| 会话标识 | `DSH_SESSION_ID`（保留旧名回退） |
+| 网页面板 | 只读状态药丸；**默认关闭**（见下，取不到数据） |
+| 压缩后重注入 | **不支持**（见下） |
 
 ### 网页面板默认关闭（取不到数据）
 
@@ -225,7 +225,7 @@ python scripts/persona.py get      # 当前生效的档位与它所在的层
 
 ### 一处真实的能力回退：`PreCompact`
 
-WorkBuddy 版注册了 5 个钩子事件。DSH 的 Claude Code 桥接只支持 4 个：
+上游版本注册了 5 个钩子事件。DSH 的 Claude Code 桥接只支持 4 个：
 `SessionStart`、`UserPromptSubmit`、`PreToolUse`、`PostToolUse`。
 **`PreCompact` 在 DSH 侧不受支持**，所以已从钩子生成器里删除。
 

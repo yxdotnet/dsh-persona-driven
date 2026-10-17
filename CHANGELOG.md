@@ -128,7 +128,7 @@ DSH 上 L3 的载体是**原生插件**，没装钩子时它判 false 并**强�
 
 ## 1.6.0 — 2026-10（首个 DSH 版本）
 
-从 WorkBuddy 技能 `persona-driven v1.5.37` 完整迁移，并原生化。
+从上游技能 `persona-driven v1.5.37` 完整迁移，并原生化。
 
 ### 新增：DSH 插件能力
 
@@ -148,10 +148,10 @@ DSH 上 L3 的载体是**原生插件**，没装钩子时它判 false 并**强�
 
 ### 迁移：平台耦合点全部改到 DSH
 
-- 状态根目录 `~/.workbuddy/persona` → `$DSH_HOME/persona`（`$DSH_HOME` 缺省 `~/.dsh`）。
-- 项目层 `<cwd>/.workbuddy/persona/state.json` → `<cwd>/.dsh/persona/state.json`。
+- 状态根目录改为 `$DSH_HOME/persona`（`$DSH_HOME` 缺省 `~/.dsh`）。
+- 项目层改为 `<cwd>/.dsh/persona/state.json`。
 - 会话标识 `CODEBUDDY_SESSION_ID` → `DSH_SESSION_ID`（保留旧名作为回退）。
-- 钩子配置目标 `~/.workbuddy/settings.json` → `$DSH_HOME/persona/hooks.json`，
+- 钩子配置目标改为 `$DSH_HOME/persona/hooks.json`，
   并改为 **Claude Code 事件映射格式**（DSH 的 `@deepseek-ai/dsh-hooks-claude-code` 桥接吃这个格式）。
 - **删除 Git Bash 依赖**：DSH 的钩子桥接走 `ctx.shell`，原生插件完全不需要 shell。
 - `doctor` 的判定从「L3 钩子是否注册」改为「DSH 插件是否装入 profile」。
@@ -159,7 +159,7 @@ DSH 上 L3 的载体是**原生插件**，没装钩子时它判 false 并**强�
 
 ### 移除：PreCompact 事件
 
-WorkBuddy 版注册了 5 个钩子事件，DSH 的 Claude Code 桥接支持其中 4 个：
+上游版本注册了 5 个钩子事件，DSH 的 Claude Code 桥接支持其中 4 个：
 `SessionStart`、`UserPromptSubmit`、`PreToolUse`、`PostToolUse`。
 **`PreCompact` 在 DSH 侧不受支持**（在桥接的不支持清单里，配置会被静默忽略），
 因此已从生成器、事件分组与文档中删除。

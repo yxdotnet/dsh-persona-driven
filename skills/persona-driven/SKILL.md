@@ -11,7 +11,6 @@ metadata:
   category: productivity-tools
   version: 1.5.37
   author: 多汁牛排
-  upstream: WorkBuddy
   description_en: "Steer how the AI works, at your pace and in your style. Say 'be decisive', 'stop re-testing everything' or 'too many tokens' and the assistant adjusts — eight dials: pace, verification, risk, structure, detail, exploration, style and warmth; or name an MBTI type ('use ENTJ') or a preset (Fast / Steady / Explore / Companion). Built for daily collaboration, writing, planning, coding and debugging — fewer repeated re-tests and re-confirmations on small changes. Trigger when the user says 'use Fast mode', 'change your style' or 'be more decisive'. Light verification only skips extra tests — what you change still gets verified; irreversible actions (deletions, payments, credentials) are always confirmed first. To see your usage data, ask for 'persona dashboard'. The optional DSH plugin keeps the profile steady on every turn, including when other skills are called."
 ---
 

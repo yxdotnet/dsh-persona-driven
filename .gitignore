@@ -6,7 +6,6 @@ dist/
 # 本机状态：人格档位、埋点、会话档位、实验数据、备份。
 # 这些是**使用数据**，不是仓库内容；误提交会把别人的对话痕迹带上去。
 .dsh/
-.workbuddy/
 persona-dashboard.html
 metrics/
 sessions/

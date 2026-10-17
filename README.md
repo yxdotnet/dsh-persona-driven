@@ -204,18 +204,18 @@ python scripts/persona.py get      # the effective profile and which layer it ca
 
 ---
 
-## What this plugin changes vs the WorkBuddy original
+## What this plugin does
 
-| | WorkBuddy | This plugin |
-|---|---|---|
-| Injection channel | hook command (`UserPromptSubmit`) | `agent/pre-step` waterfall (native, no subprocess) |
-| Dependencies | **Git Bash + Python** | **none** (Python only for the CLI) |
-| Safety floor | `PreToolUse` hook returns `ask` | `tools/pre-execute` returns `{kind:'ask'}` → DSH Approval service |
-| State root | `~/.workbuddy/persona` | `$DSH_HOME/persona` (default `~/.dsh/persona`) |
-| Project layer | `<cwd>/.workbuddy/persona` | `<cwd>/.dsh/persona` |
-| Session id | `CODEBUDDY_SESSION_ID` | `DSH_SESSION_ID` (older names still fall back) |
-| Web panel | none | read-only status pill; **off by default** (see below, it cannot read the data) |
-| Re-inject after compaction | `PreCompact` | **unsupported** (see below) |
+| Item | Behaviour |
+|---|---|
+| Injection channel | `agent/pre-step` waterfall — native, no subprocess |
+| Dependencies | **none** (Python is only needed for the CLI: switching dials, dashboard) |
+| Safety floor | `tools/pre-execute` returns `{kind:'ask'}` → DSH Approval service |
+| State root | `$DSH_HOME/persona` (default `~/.dsh/persona`) |
+| Project layer | `<cwd>/.dsh/persona` — resolved to the git root, same as the plugin |
+| Session id | `DSH_SESSION_ID` (older names still fall back) |
+| Web panel | read-only status pill; **off by default** (see below, it cannot read the data) |
+| Re-inject after compaction | **unsupported** (see below) |
 
 ### The web pill is off by default (it cannot read the data)
 
@@ -243,7 +243,7 @@ Turning on `webPanel: true` only makes sense when a **global** persona is set ex
 
 ### One real, minor regression: `PreCompact`
 
-The WorkBuddy version registered five hook events. DSH's Claude Code bridge supports four:
+The upstream version registered five hook events. DSH's Claude Code bridge supports four:
 `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`. **`PreCompact` is not
 supported on DSH**, so it has been removed from the hook generator.
 

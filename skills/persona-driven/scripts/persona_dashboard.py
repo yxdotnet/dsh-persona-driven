@@ -55,7 +55,7 @@ def effective_class(e: dict) -> str:
     return tool
 
 
-# 工具族的名字前缀（DSH 的工具生态比 WorkBuddy 宽得多：MCP、blender_rt_*、内置的
+# 工具族的名字前缀（DSH 的工具生态比原平台宽得多：MCP、blender_rt_*、内置的
 # skill / job_*…）。**只用已落盘的字段归类，不新增埋点。**
 FAMILY_PREFIXES = (
     ("mcp__", "MCP"),

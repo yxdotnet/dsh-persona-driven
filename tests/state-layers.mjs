@@ -1,8 +1,8 @@
 /**
  * 三层状态定位测试：会话 > 项目 > 全局，且写入路径与 Python 侧完全同名同目录。
  *
- * 这条用例真的抓得住改动：把优先级顺序调换、把项目层从 `.dsh/persona` 改回
- * `.workbuddy/persona`、或让 sanitizeSession 放过非法字符，都会失败。
+ * 这条用例真的抓得住改动：把优先级顺序调换、把项目层写回项目目录内、
+ * 或让 sanitizeSession 放过非法字符，都会失败。
  */
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
