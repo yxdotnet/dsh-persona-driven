@@ -26,7 +26,7 @@ sys.dont_write_bytecode = True
 import json
 import os
 from collections import Counter, defaultdict
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import hook_persona as hp
@@ -63,6 +63,25 @@ FAMILY_PREFIXES = (
     ("skill", "技能"),
     ("job_", "后台作业"),
 )
+
+
+def parse_ts(value) -> "datetime | None":
+    """容错解析埋点时间戳。
+
+    **必须真解析，不能比字符串**：档位记录由 `persona.py` 写成 `+08:00` 形式，
+    而插件用 `isoMillis()` 写成 `Z` 形式。两种写法逐字符比较会得到错误的大小关系，
+    所以凡是「按时间切分」的地方都走这里。
+    """
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if text.endswith(("Z", "z")):
+        text = text[:-1] + "+00:00"
+    try:
+        moment = datetime.fromisoformat(text)
+    except Exception:
+        return None
+    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
 
 
 def tool_family(e: dict) -> str:
@@ -403,6 +422,60 @@ def main():
     ]
     per_turn.sort(key=lambda r: r["callsPerTurn"], reverse=True)
 
+    # 技能调用排行：只看 `skill` 字段（只有 skill 工具会带）。这是检验本技能触发词
+    # 是否真的生效的直接依据——被调用了才有这一行。
+    skill_rows = Counter(str(e.get("skill")) for e in events if e.get("skill"))
+
+    # ---- 档位切换前后对照（判定线真正关心的那一块）--------------------------
+    #
+    # 「切档之后每轮调用数有没有降」是相对量，无法从总量看出来。两侧各至少 2 轮才算，
+    # 且窗口只取该会话**首条 turn 之后**（理由同 per_turn：turn 埋点是 1.7.0 才上线的）。
+    dial_changes = [d for d in dial_rows if str(d.get("ev") or "") == "dial_change"]
+    dial_cut = {}
+    for d in sorted(dial_changes, key=lambda r: str(r.get("ts") or "")):
+        sid = str(d.get("session") or "")
+        moment = parse_ts(d.get("ts"))
+        if sid and moment is not None and sid not in dial_cut:
+            dial_cut[sid] = moment
+
+    dial_compare = []
+    for sid, cut in dial_cut.items():
+        start = parse_ts(first_turn_ts.get(sid))
+        if start is None or cut <= start:
+            continue   # 没有 turn 网格，或切档发生在观察窗之前——算不出前后
+        before_turns = after_turns = before_calls = after_calls = 0
+        for m in turn_rows:
+            if str(m.get("session") or "") != sid:
+                continue
+            moment = parse_ts(m.get("ts"))
+            if moment is None:
+                continue
+            if moment < cut:
+                before_turns += 1
+            else:
+                after_turns += 1
+        for e in events:
+            if str(e.get("session") or "") != sid:
+                continue
+            moment = parse_ts(e.get("ts"))
+            if moment is None or moment < start:
+                continue
+            if moment < cut:
+                before_calls += 1
+            else:
+                after_calls += 1
+        if before_turns < 2 or after_turns < 2:
+            continue   # 两侧不足 2 轮，比值是噪声
+        dial_compare.append({
+            "session": sid[:13] + "…",
+            "before": {"turns": before_turns, "calls": before_calls,
+                       "perTurn": round(before_calls / before_turns, 2)},
+            "after": {"turns": after_turns, "calls": after_calls,
+                      "perTurn": round(after_calls / after_turns, 2)},
+        })
+    # 别按「方向」排序——那会诱导只看想要的结果。按会话排，稳定。
+    dial_compare.sort(key=lambda r: r["session"])
+
     # 「自定义」档位的显示名：用该会话层档位文件的八旋钮级别组合区分（仅此情形，
     # MBTI 名原样保留）。事件级预计算 _pd，供所有 persona 聚合统一取用。
     sess_state_by_pfx = {fs[:24]: st for fs, st in sess_states.items()}
@@ -677,6 +750,8 @@ def main():
         },
         "perTurn": per_turn[:20],
         "turnsTotal": len(turn_rows),
+        "skills": skill_rows.most_common(15),
+        "dialCompare": dial_compare,
         "exploreSmall": explore_view(small_events),
         "sessDetail": sess_detail,
         "projDetail": proj_detail,
@@ -746,6 +821,12 @@ def main():
                             if per_turn else
                             f"暂无（turn 记录 {len(turn_rows)} 条；同一会话至少 2 轮才算，"
                             f"且只数首条 turn 之后的调用）"))
+    print("技能调用：" + ("、".join(f"{name} {n}" for name, n in skill_rows.most_common(5))
+                          if skill_rows else "暂无（没有 skill 工具调用）"))
+    print("档位前后对照：" + ("；".join(
+        f"{r['session']} {r['before']['perTurn']}→{r['after']['perTurn']} 次/轮"
+        for r in dial_compare) if dial_compare else
+        "暂无（需同一会话首条 turn 之后有切档，且切档前后各至少 2 轮）"))
     print(f"写出 {OUT}")
 
 
@@ -825,8 +906,11 @@ select{font-size:13px;padding:2px 4px;max-width:340px;}
 <div class="panel hk" id="dshPanel">
   <h3>DSH 维度 · 工具族 / 审批结局 / 每轮调用数</h3>
   <p class="note" id="dshFam">—</p>
+  <div class="ch"><canvas id="dshFamily" role="img" aria-label="工具族分布柱状图">工具族</canvas></div>
   <p class="note" id="dshAppr">—</p>
   <p class="note" id="dshTurn">—</p>
+  <div class="ch"><canvas id="dshTurnChart" role="img" aria-label="每轮调用数与档位前后对照">每轮调用数</canvas></div>
+  <p class="note" id="dshSkill">—</p>
   <p class="note">口径：工具族按已落盘字段归类，不新增采集；审批结局与每轮边界来自 DSH 的会话事件
   （只有原生插件会写，钩子桥没有），所以旧数据一律显示「暂无」而不编造。</p>
 </div>
@@ -1205,6 +1289,42 @@ function renderDsh() {
       .join(' · ')
     : '每轮调用数：暂无（turn 记录 ' + (P.turnsTotal || 0) + ' 条；同一会话至少 2 轮才算，'
       + '且只数首条 turn 之后的调用）—— 这是「档位是否让人一次到位」的相对量';
+
+  const sk = P.skills || [];
+  document.getElementById('dshSkill').innerHTML = sk.length
+    ? '技能调用：' + sk.map((r) => r[0] + ' ' + r[1]).join(' · ')
+    : '技能调用：暂无（本区间没有 skill 工具调用）';
+
+  // 工具族柱状图
+  if (fam.length) {
+    mk('dshFamily', { type: 'bar',
+      data: { labels: fam.map((r) => r[0]),
+        datasets: [{ label: '调用次数', data: fam.map((r) => r[1]),
+          backgroundColor: 'rgba(29,158,117,.55)', borderColor: '#0F6E56', borderWidth: 1 }] },
+      options: { maintainAspectRatio: false, plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } } });
+  }
+
+  // 每轮调用数：有档位前后对照就画成对柱（判定线关心的正是这个对比），否则画绝对量
+  const dc = P.dialCompare || [];
+  if (dc.length) {
+    mk('dshTurnChart', { type: 'bar',
+      data: { labels: dc.map((r) => r.session),
+        datasets: [
+          { label: '切档前（次/轮）', data: dc.map((r) => r.before.perTurn),
+            backgroundColor: 'rgba(24,95,165,.55)', borderColor: '#185FA5', borderWidth: 1 },
+          { label: '切档后（次/轮）', data: dc.map((r) => r.after.perTurn),
+            backgroundColor: 'rgba(186,117,23,.55)', borderColor: '#BA7517', borderWidth: 1 }] },
+      options: { maintainAspectRatio: false, plugins: { legend: { display: true } },
+        scales: { y: { beginAtZero: true } } } });
+  } else if (t.length) {
+    mk('dshTurnChart', { type: 'bar',
+      data: { labels: t.map((r) => r.session),
+        datasets: [{ label: '次/轮', data: t.map((r) => r.callsPerTurn),
+          backgroundColor: 'rgba(55,138,221,.55)', borderColor: '#185FA5', borderWidth: 1 }] },
+      options: { maintainAspectRatio: false, plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true } } } });
+  }
 }
 
 function renderAll() {
