@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -362,6 +363,16 @@ def scope_or_die(value: str) -> str:
     return s
 
 
+def proj_id(cwd) -> str:
+    """项目短 ID：cwd 的 sha256 前 12 位。
+
+    **必须与 `lib/persona-core.js` 的 `sha12(cwd)` 同算法、同输入。** 这个值写进工具事件的
+    `proj` 字段，看板靠它把「档位流水」和「工具事件」归到同一个项目下。算法或输入差一点，
+    两边就永远对不上，而且是静默的——所以改动前先用 `tests/floor-text-sync.mjs` 的思路对拍。
+    """
+    return hashlib.sha256(str(cwd).encode("utf-8", "replace")).hexdigest()[:12]
+
+
 def find_project_root(start) -> Path:
     """项目根：最近的含 `.git` 的祖先，找不到就是起点本身。
 
@@ -616,6 +627,8 @@ def log_dial_change(action: str, state: dict, layer: str) -> None:
             "kind": state.get("kind"),
             "level": state.get("level"),
             "scope": layer,
+            # 项目层的档位流水带上 proj，看板才能把它归到对应项目下（与工具事件同算法）。
+            "proj": proj_id(Path.cwd()) if layer == "project" else None,
             "session": str(current_session_id() or "unknown")[:24],
         }
         append_jsonl(metrics_dir() / f"dials-{datetime.now():%Y-%m-%d}.jsonl", record)

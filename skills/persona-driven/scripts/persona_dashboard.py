@@ -543,7 +543,10 @@ def main():
         return sorted(c.items())
 
     def persona_mix(sel):
-        c = Counter(e.get("_pd") or e.get("persona", "") or "未知" for e in sel)
+        # 全量口径：无档位可归属的事件显示为「设档位前/未归属」，不写「未知」。
+        # 「未知」读起来像「数据缺失」，而实际含义是「那次调用发生在设档位之前（或关档之后）」——
+        # 这是正常且可解释的，面板下有一条静态说明（对齐上游 v1.5.40）。
+        c = Counter(e.get("_pd") or e.get("persona", "") or "设档位前/未归属" for e in sel)
         return c.most_common(8)
 
     def tool_mix(sel):
@@ -898,6 +901,8 @@ select{font-size:13px;padding:2px 4px;max-width:340px;}
   <div class="panel hk">
     <h3>人格使用分布</h3>
     <div class="ch"><canvas id="persona" role="img" aria-label="人格使用分布环形图">人格分布</canvas></div>
+    <p class="note hk">「设档位前/未归属」= 该会话里**设档位之前**（或关档之后）发生的工具调用，
+    它们确实没有对应的人格，不是数据缺失。相关视角已剔除这一片。</p>
   </div>
 </div>
 
